@@ -1,0 +1,59 @@
+Vedant Kadam
+j89tj@unb.ca | linkedin.com/in/vedantkadam07 | github.com/iamvk07
+Fredericton, NB, Canada
+
+EDUCATION
+Bachelor of Computer Science                                Jan 2024 - Jan 2028
+University of New Brunswick, Fredericton, NB
+- Minor in Mathematics; Technology Management & Entrepreneurship (TME) Diploma
+- Relevant coursework: Data Structures & Algorithms, Database Systems, Software Engineering
+
+EXPERIENCE
+Junior Software Developer                                   May 2023 - Dec 2023
+ParamShree Technologies, India
+- Developed and maintained web application features using HTML, CSS, and JavaScript
+- Reduced post-deployment errors by writing targeted unit tests
+- Collaborated with cross-functional agile teams to deliver sprint deliverables
+- Participated in code reviews, improving code quality and development practices
+
+Retail Associate                                           May 2024 - Aug 2024
+Walmart, Fredericton, NB
+- Customer service, inventory management, and team collaboration
+
+PROJECTS
+Flight Management System                                   Jan 2025 - Apr 2025
+Java, C++, Python, Flask, React, PostgreSQL
+- Built full-stack flight management platform with RESTful APIs
+- Implemented conflict detection and scheduling rules in Java/C++
+- Designed normalized PostgreSQL schema with full referential integrity
+- Integrated React frontend with Flask backend
+
+Multiplayer Mini-Game Plugin                               May 2025 - Aug 2025
+Java, Maven, CI/CD, GitHub Actions
+- Architected multiplayer plugin for sandbox server environment
+- Set up automated CI/CD pipelines using Maven and GitHub Actions
+- Engineered configurable gameplay logic in Java
+
+Algorithm Visualizer                                       Sep 2025 - Nov 2025
+React, JavaScript, HTML/CSS
+- Built React app visualizing 6 sorting algorithms and 3 graph traversal algorithms
+- BFS, DFS, Dijkstra with real-time animation and Big-O complexity breakdowns
+
+CodeSense - AI Code Reviewer                               Feb 2026 - Mar 2026
+JavaScript, Anthropic Claude API, HTML/CSS
+- AI-powered code review tool using Anthropic Claude API
+- Engineered JSON prompt system with severity levels and quality scoring
+
+TECHNICAL SKILLS
+Languages: Java, Python, C/C++, SQL, JavaScript, HTML, CSS
+Frameworks: React, Node.js, Flask, FastAPI, JUnit
+Tools: Git, Docker, GitHub Actions, PostgreSQL, Google Cloud Platform, VS Code
+Practices: REST API Design, Agile/Scrum, CI/CD, Unit Testing, OOP, Database Design
+
+VOLUNTEER
+UNB Redshirt Program                                       Sep 2025 - Dec 2025
+- Mentored incoming students during orientation
+
+INTERESTS
+Sports: UNB intramural football, national-level volleyball
+Fitness: 3+ years strength training. Music: Guitar 10+ years
