@@ -1,18 +1,20 @@
 """
 Text extraction utilities.
-Supports: .txt files, .pdf files (basic), .tex files (LaTeX), raw text strings.
+Supports: .txt files, .pdf files (basic), .tex files (LaTeX), .docx files (Word), raw text strings.
 """
 
 import os
 import re
 import struct
+import zipfile
 import zlib
+from xml.etree import ElementTree
 
 
 def extract_text(source: str) -> str:
     """
     Extract text from a file path or raw text string.
-    Supports .txt, .pdf, and .tex files, or plain text input.
+    Supports .txt, .pdf, .tex, and .docx files, or plain text input.
     """
     if os.path.isfile(source):
         ext = os.path.splitext(source)[1].lower()
@@ -22,8 +24,12 @@ def extract_text(source: str) -> str:
             return _extract_txt(source)
         elif ext == ".tex":
             return _extract_tex(source)
+        elif ext == ".docx":
+            return _extract_docx(source)
         else:
-            raise ValueError(f"Unsupported file type: {ext}. Use .txt, .pdf, or .tex")
+            raise ValueError(
+                f"Unsupported file type: {ext}. Use .txt, .pdf, .tex, or .docx"
+            )
     else:
         # Treat as raw text
         return source.strip()
@@ -148,6 +154,55 @@ def strip_latex(text: str) -> str:
     text = re.sub(r"\n\s*\n+", "\n", text)
 
     return text.strip()
+
+
+def _extract_docx(path: str) -> str:
+    """
+    Extract text from a .docx file without external libraries.
+    .docx is a ZIP archive; text content is in word/document.xml.
+    """
+    try:
+        with zipfile.ZipFile(path, "r") as z:
+            if "word/document.xml" not in z.namelist():
+                raise ValueError("Invalid .docx file: word/document.xml not found")
+            xml_content = z.read("word/document.xml")
+
+        tree = ElementTree.fromstring(xml_content)
+
+        # Word XML namespace
+        W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+        paragraphs = []
+        for para in tree.iter(f"{{{W_NS}}}p"):
+            texts = []
+            for node in para.iter(f"{{{W_NS}}}t"):
+                if node.text:
+                    texts.append(node.text)
+            if texts:
+                paragraphs.append("".join(texts))
+
+        result = "\n".join(paragraphs).strip()
+
+        if len(result) < 10:
+            raise ValueError(
+                "DOCX text extraction yielded too little text. "
+                "Try saving as .txt first."
+            )
+
+        return result
+
+    except zipfile.BadZipFile:
+        raise ValueError(
+            f"Could not read .docx file: {path}\n"
+            "The file may be corrupted. Try re-saving from Word or use .txt."
+        )
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(
+            f"Could not extract text from DOCX: {e}\n"
+            "Tip: Copy your resume text into a .txt file for best results."
+        )
 
 
 def clean_text(text: str) -> str:

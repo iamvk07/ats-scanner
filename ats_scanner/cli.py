@@ -45,7 +45,7 @@ def parse_args(argv=None) -> argparse.Namespace:
         description=textwrap.dedent("""\
             ATS Scanner — Analyze how well your resume matches a job description.
 
-            Supports .txt, .pdf, and .tex (LaTeX) files, or paste text directly.
+            Supports .txt, .pdf, .tex, and .docx files, or paste text directly.
 
             Examples:
               python scan.py --resume resume.txt --jd job.txt
@@ -59,13 +59,13 @@ def parse_args(argv=None) -> argparse.Namespace:
         "--resume",
         "-r",
         required=False,
-        help="Path to your resume (.txt, .pdf, or .tex)",
+        help="Path to your resume (.txt, .pdf, .tex, or .docx)",
     )
     parser.add_argument(
         "--jd",
         "-j",
         required=False,
-        help="Path to job description (.txt, .pdf, or .tex)",
+        help="Path to job description (.txt, .pdf, .tex, or .docx)",
     )
     parser.add_argument(
         "--output", "-o", required=False, help="Save report to file (.txt or .json)"

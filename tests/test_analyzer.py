@@ -221,7 +221,7 @@ class TestTextExtraction(unittest.TestCase):
     def test_unsupported_file_type(self):
         import tempfile
 
-        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".odt", delete=False) as f:
             f.write(b"fake")
             tmp = f.name
         try:
@@ -380,6 +380,93 @@ Actual content here"""
         self.assertNotIn("\\textbf", result)
         self.assertNotIn("\\emph", result)
         self.assertNotIn("{", result)
+
+
+class TestDocxExtraction(unittest.TestCase):
+    def _make_docx(self, text_content):
+        import tempfile
+        import zipfile
+        from xml.etree.ElementTree import Element, SubElement, tostring
+
+        ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        doc = Element(f"{{{ns}}}document")
+        body = SubElement(doc, f"{{{ns}}}body")
+        para = SubElement(body, f"{{{ns}}}p")
+        run = SubElement(para, f"{{{ns}}}r")
+        text = SubElement(run, f"{{{ns}}}t")
+        text.text = text_content
+
+        xml_bytes = tostring(doc, encoding="unicode").encode("utf-8")
+
+        tmp = tempfile.NamedTemporaryFile(suffix=".docx", delete=False)
+        with zipfile.ZipFile(tmp, "w") as z:
+            z.writestr("word/document.xml", xml_bytes)
+        tmp.close()
+        return tmp.name
+
+    def test_extract_docx_basic(self):
+        path = self._make_docx("Python developer with React and PostgreSQL")
+        try:
+            result = extract_text(path)
+            self.assertIn("Python", result)
+            self.assertIn("React", result)
+            self.assertIn("PostgreSQL", result)
+        finally:
+            os.unlink(path)
+
+    def test_extract_docx_keywords_match(self):
+        from ats_scanner.analyzer import extract_keywords
+
+        path = self._make_docx("Experience with Python, Java, Docker, and PostgreSQL")
+        try:
+            text = extract_text(path)
+            kws = extract_keywords(text.lower())
+            self.assertIn("python", kws.get("languages", []))
+            self.assertIn("java", kws.get("languages", []))
+        finally:
+            os.unlink(path)
+
+    def test_invalid_docx_raises(self):
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+            f.write(b"this is not a zip file at all")
+            tmp = f.name
+        try:
+            with self.assertRaises(ValueError):
+                extract_text(tmp)
+        finally:
+            os.unlink(tmp)
+
+    def test_empty_docx_raises(self):
+        import tempfile
+        import zipfile
+
+        ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        xml = f'<w:document xmlns:w="{ns}"><w:body></w:body></w:document>'
+        tmp = tempfile.NamedTemporaryFile(suffix=".docx", delete=False)
+        with zipfile.ZipFile(tmp, "w") as z:
+            z.writestr("word/document.xml", xml)
+        tmp.close()
+        try:
+            with self.assertRaises(ValueError):
+                extract_text(tmp.name)
+        finally:
+            os.unlink(tmp.name)
+
+    def test_docx_missing_document_xml(self):
+        import tempfile
+        import zipfile
+
+        tmp = tempfile.NamedTemporaryFile(suffix=".docx", delete=False)
+        with zipfile.ZipFile(tmp, "w") as z:
+            z.writestr("other/file.xml", "<root/>")
+        tmp.close()
+        try:
+            with self.assertRaises(ValueError):
+                extract_text(tmp.name)
+        finally:
+            os.unlink(tmp.name)
 
 
 if __name__ == "__main__":

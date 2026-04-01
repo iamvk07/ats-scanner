@@ -450,7 +450,7 @@ Include:
 • Skills section"></textarea>
         </div>
         <div id="resume-upload" style="display:none;">
-          <input type="file" id="resumeFile" accept=".txt,.pdf,.tex" onchange="handleFile('resume',this)">
+          <input type="file" id="resumeFile" accept=".txt,.pdf,.tex,.docx" onchange="handleFile('resume',this)">
           <div class="upload-zone" id="resumeDrop"
             onclick="document.getElementById('resumeFile').click()"
             ondragover="onDrag(event,true,'resumeDrop')"
@@ -458,7 +458,7 @@ Include:
             ondrop="onDrop(event,'resume')">
             <div class="uz-icon">📄</div>
             <div class="uz-text">Drop file or <strong>browse</strong></div>
-            <div class="uz-hint">.txt, .pdf, or .tex supported</div>
+            <div class="uz-hint">.txt, .pdf, .tex, or .docx supported</div>
             <div class="uz-fname" id="resumeFName"></div>
           </div>
         </div>
@@ -484,7 +484,7 @@ Include everything:
 • Qualifications"></textarea>
         </div>
         <div id="jd-upload" style="display:none;">
-          <input type="file" id="jdFile" accept=".txt,.tex" onchange="handleFile('jd',this)">
+          <input type="file" id="jdFile" accept=".txt,.tex,.docx" onchange="handleFile('jd',this)">
           <div class="upload-zone" id="jdDrop"
             onclick="document.getElementById('jdFile').click()"
             ondragover="onDrag(event,true,'jdDrop')"
@@ -492,7 +492,7 @@ Include everything:
             ondrop="onDrop(event,'jd')">
             <div class="uz-icon">📋</div>
             <div class="uz-text">Drop file or <strong>browse</strong></div>
-            <div class="uz-hint">.txt or .tex files</div>
+            <div class="uz-hint">.txt, .tex, or .docx files</div>
             <div class="uz-fname" id="jdFName"></div>
           </div>
         </div>
@@ -970,6 +970,90 @@ function stripLatex(text){
     return text.trim();
 }
 
+async function extractDocx(buffer){
+    if(typeof DecompressionStream === 'undefined'){
+        throw new Error('Your browser does not support .docx reading — please paste text instead');
+    }
+
+    const bytes = new Uint8Array(buffer);
+
+    // Find End of Central Directory record (last 22+ bytes)
+    let eocdOffset = -1;
+    for(let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--){
+        if(bytes[i]===0x50 && bytes[i+1]===0x4b && bytes[i+2]===0x05 && bytes[i+3]===0x06){
+            eocdOffset = i; break;
+        }
+    }
+    if(eocdOffset < 0) throw new Error('Not a valid ZIP file');
+
+    const view = new DataView(buffer);
+    const cdOffset = view.getUint32(eocdOffset + 16, true);
+    const cdSize = view.getUint32(eocdOffset + 12, true);
+
+    // Parse central directory to find word/document.xml
+    let pos = cdOffset;
+    let docEntry = null;
+    while(pos < cdOffset + cdSize){
+        if(view.getUint32(pos, true) !== 0x02014b50) break;
+        const compMethod = view.getUint16(pos + 10, true);
+        const compSize = view.getUint32(pos + 20, true);
+        const uncompSize = view.getUint32(pos + 24, true);
+        const nameLen = view.getUint16(pos + 28, true);
+        const extraLen = view.getUint16(pos + 30, true);
+        const commentLen = view.getUint16(pos + 32, true);
+        const localOffset = view.getUint32(pos + 42, true);
+        const name = new TextDecoder().decode(bytes.slice(pos + 46, pos + 46 + nameLen));
+
+        if(name === 'word/document.xml'){
+            docEntry = { compMethod, compSize, uncompSize, localOffset };
+            break;
+        }
+        pos += 46 + nameLen + extraLen + commentLen;
+    }
+    if(!docEntry) throw new Error('word/document.xml not found in .docx');
+
+    // Read local file header to find data start
+    const localNameLen = view.getUint16(docEntry.localOffset + 26, true);
+    const localExtraLen = view.getUint16(docEntry.localOffset + 28, true);
+    const dataStart = docEntry.localOffset + 30 + localNameLen + localExtraLen;
+    const compData = bytes.slice(dataStart, dataStart + docEntry.compSize);
+
+    let xmlText;
+    if(docEntry.compMethod === 0){
+        xmlText = new TextDecoder().decode(compData);
+    } else {
+        const ds = new DecompressionStream('deflate-raw');
+        const writer = ds.writable.getWriter();
+        writer.write(compData);
+        writer.close();
+        const reader = ds.readable.getReader();
+        const chunks = [];
+        while(true){
+            const {done, value} = await reader.read();
+            if(done) break;
+            chunks.push(value);
+        }
+        const total = chunks.reduce((s,c) => s + c.length, 0);
+        const result = new Uint8Array(total);
+        let off = 0;
+        for(const c of chunks){ result.set(c, off); off += c.length; }
+        xmlText = new TextDecoder().decode(result);
+    }
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, 'application/xml');
+    const ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+    const paragraphs = [];
+    for(const p of doc.getElementsByTagNameNS(ns, 'p')){
+        const texts = [];
+        for(const t of p.getElementsByTagNameNS(ns, 't')){
+            if(t.textContent) texts.push(t.textContent);
+        }
+        if(texts.length) paragraphs.push(texts.join(''));
+    }
+    return paragraphs.join('\n').trim();
+}
+
 function handleFile(which, input){
   const file=input.files[0]; if(!file) return;
   const nameEl=document.getElementById(`${which}FName`);
@@ -997,6 +1081,18 @@ function handleFile(which, input){
       const text = stripLatex(e.target.result);
       if(which==='resume') resumeContent=text; else jdContent=text;
       nameEl.textContent='✓ '+file.name;
+    };
+  } else if(file.name.endsWith('.docx')){
+    reader.readAsArrayBuffer(file);
+    reader.onload=async e=>{
+      try {
+        const text = await extractDocx(e.target.result);
+        if(which==='resume') resumeContent=text; else jdContent=text;
+        nameEl.textContent='✓ '+file.name;
+      } catch(err) {
+        nameEl.textContent='✗ Could not read .docx — try pasting text instead';
+        nameEl.style.color='var(--red)';
+      }
     };
   } else {
     reader.readAsText(file);
