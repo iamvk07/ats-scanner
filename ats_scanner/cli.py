@@ -35,7 +35,7 @@ def print_banner() -> None:
     if os.isatty(1):
         print(col(BANNER, C.BRIGHT_CYAN))
     print(col("  Resume vs Job Description ATS Keyword Analyzer", C.DIM))
-    print(col("  github.com/iamvk07/ats-scanner  ·  v1.0.0\n", C.DIM))
+    print(col("  github.com/Calebe94/ats-scanner\n", C.DIM))
 
 
 def parse_args(argv=None) -> argparse.Namespace:
@@ -52,7 +52,7 @@ def parse_args(argv=None) -> argparse.Namespace:
               python scan.py --resume resume.pdf --jd job.txt --output report.json
               python scan.py --resume resume.txt --jd job.txt --score-only
         """),
-        epilog="Built by Vedant Kadam · github.com/iamvk07/ats-scanner",
+        epilog="Built by calebe94 · github.com/Calebe94/ats-scanner",
     )
 
     parser.add_argument(
@@ -109,8 +109,8 @@ def get_input_interactive(prompt: str, label: str) -> str:
 def run_demo() -> None:
     """Run with built-in demo data."""
     demo_resume = """
-    Vedant Kadam
-    j89tj@unb.ca | github.com/iamvk07 | Fredericton, NB
+    Edimar Calebe Castanho
+    calebe94@pm.me | github.com/Calebe94 | Curitiba, PR
 
     EDUCATION
     Bachelor of Computer Science, University of New Brunswick, 2024-2028

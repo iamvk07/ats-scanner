@@ -11,49 +11,56 @@ from typing import Dict
 
 # ── TERMINAL COLORS ──────────────────────────────────────────────────────────
 
+
 class Color:
-    RESET   = "\033[0m"
-    BOLD    = "\033[1m"
-    DIM     = "\033[2m"
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
 
-    BLACK   = "\033[30m"
-    RED     = "\033[31m"
-    GREEN   = "\033[32m"
-    YELLOW  = "\033[33m"
-    BLUE    = "\033[34m"
+    BLACK = "\033[30m"
+    RED = "\033[31m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"
     MAGENTA = "\033[35m"
-    CYAN    = "\033[36m"
-    WHITE   = "\033[37m"
+    CYAN = "\033[36m"
+    WHITE = "\033[37m"
 
-    BG_BLACK  = "\033[40m"
-    BG_GREEN  = "\033[42m"
-    BG_RED    = "\033[41m"
+    BG_BLACK = "\033[40m"
+    BG_GREEN = "\033[42m"
+    BG_RED = "\033[41m"
     BG_YELLOW = "\033[43m"
-    BG_BLUE   = "\033[44m"
+    BG_BLUE = "\033[44m"
 
     # Bright variants
-    BRIGHT_GREEN  = "\033[92m"
+    BRIGHT_GREEN = "\033[92m"
     BRIGHT_YELLOW = "\033[93m"
-    BRIGHT_BLUE   = "\033[94m"
-    BRIGHT_CYAN   = "\033[96m"
-    BRIGHT_WHITE  = "\033[97m"
-    BRIGHT_RED    = "\033[91m"
+    BRIGHT_BLUE = "\033[94m"
+    BRIGHT_CYAN = "\033[96m"
+    BRIGHT_WHITE = "\033[97m"
+    BRIGHT_RED = "\033[91m"
+
 
 C = Color
+
 
 def _supports_color() -> bool:
     """Check if terminal supports ANSI colors."""
     return (hasattr(os, "isatty") and os.isatty(1)) or os.environ.get("FORCE_COLOR")
 
+
 USE_COLOR = _supports_color()
+
 
 def col(text: str, *codes: str) -> str:
     if not USE_COLOR:
         return text
     return "".join(codes) + str(text) + C.RESET
 
+
 def bold(text: str) -> str:
     return col(text, C.BOLD)
+
 
 def dim(text: str) -> str:
     return col(text, C.DIM)
@@ -63,27 +70,34 @@ def dim(text: str) -> str:
 
 WIDTH = 72
 
+
 def line(char: str = "─", width: int = WIDTH) -> str:
     return col(char * width, C.DIM)
+
 
 def header_line(char: str = "═", width: int = WIDTH) -> str:
     return col(char * width, C.CYAN)
 
+
 def section_line(char: str = "─", width: int = WIDTH) -> str:
     return col(char * width, C.DIM)
+
 
 def center(text: str, width: int = WIDTH) -> str:
     # Strip ANSI for length calculation
     import re
+
     clean = re.sub(r"\033\[[0-9;]*m", "", text)
     pad = max(0, (width - len(clean)) // 2)
     return " " * pad + text
+
 
 def label(text: str, width: int = 20) -> str:
     return col(text.ljust(width), C.DIM)
 
 
 # ── SCORE VISUALIZATION ──────────────────────────────────────────────────────
+
 
 def score_bar(score: float, width: int = 40) -> str:
     filled = int((score / 100) * width)
@@ -101,8 +115,10 @@ def score_bar(score: float, width: int = 40) -> str:
 
 
 def score_color(score: float) -> str:
-    if score >= 75: return C.BRIGHT_GREEN
-    if score >= 55: return C.BRIGHT_YELLOW
+    if score >= 75:
+        return C.BRIGHT_GREEN
+    if score >= 55:
+        return C.BRIGHT_YELLOW
     return C.BRIGHT_RED
 
 
@@ -122,18 +138,23 @@ def grade_badge(grade: str) -> str:
 
 # ── KEYWORD TAGS ─────────────────────────────────────────────────────────────
 
+
 def tag_matched(kw: str) -> str:
     return col(f" ✓ {kw} ", C.BRIGHT_GREEN)
+
 
 def tag_missing(kw: str) -> str:
     return col(f" ✗ {kw} ", C.BRIGHT_RED)
 
+
 def tag_bonus(kw: str) -> str:
     return col(f" + {kw} ", C.BRIGHT_BLUE)
+
 
 def wrap_tags(tags: list, width: int = WIDTH - 4) -> list:
     """Wrap tag list into lines that fit within width."""
     import re
+
     lines = []
     current = "  "
     for tag in tags:
@@ -151,20 +172,23 @@ def wrap_tags(tags: list, width: int = WIDTH - 4) -> list:
 # ── CATEGORY DISPLAY NAMES ───────────────────────────────────────────────────
 
 CAT_DISPLAY = {
-    "languages":    ("💻", "Programming Languages"),
-    "frameworks":   ("⚙️ ", "Frameworks & Libraries"),
-    "databases":    ("🗄️ ", "Databases"),
+    "languages": ("💻", "Programming Languages"),
+    "frameworks": ("⚙️ ", "Frameworks & Libraries"),
+    "databases": ("🗄️ ", "Databases"),
     "devops_cloud": ("☁️ ", "DevOps & Cloud"),
-    "tools":        ("🔧", "Tools & Platforms"),
-    "concepts":     ("🧠", "Concepts & Practices"),
-    "soft_skills":  ("🤝", "Soft Skills"),
-    "education":    ("🎓", "Education"),
+    "tools": ("🔧", "Tools & Platforms"),
+    "concepts": ("🧠", "Concepts & Practices"),
+    "soft_skills": ("🤝", "Soft Skills"),
+    "education": ("🎓", "Education"),
 }
 
 
 # ── MAIN REPORT ──────────────────────────────────────────────────────────────
 
-def print_report(result: Dict, resume_name: str = "resume", jd_name: str = "job description") -> None:
+
+def print_report(
+    result: Dict, resume_name: str = "resume", jd_name: str = "job description"
+) -> None:
     score = result["score"]
     grade = result["grade"]
     lines = []
@@ -178,14 +202,16 @@ def print_report(result: Dict, resume_name: str = "resume", jd_name: str = "job 
     p(header_line("═"))
     p(center(col("  ATS SCANNER  ", C.BOLD, C.BRIGHT_CYAN)))
     p(center(col("Resume vs Job Description Analyzer", C.DIM)))
-    p(center(col(f"by Vedant Kadam  ·  github.com/iamvk07/ats-scanner", C.DIM)))
+    p(center(col(f"by calebe94  ·  github.com/Calebe94/ats-scanner", C.DIM)))
     p(header_line("═"))
     p()
 
     # ── FILES ──
     p(f"  {label('Resume:')}  {col(resume_name, C.BRIGHT_WHITE)}")
     p(f"  {label('Job Description:')}  {col(jd_name, C.BRIGHT_WHITE)}")
-    p(f"  {label('Analyzed:')}  {col(datetime.now().strftime('%Y-%m-%d %H:%M'), C.DIM)}")
+    p(
+        f"  {label('Analyzed:')}  {col(datetime.now().strftime('%Y-%m-%d %H:%M'), C.DIM)}"
+    )
     p()
 
     # ── SCORE CARD ──
@@ -200,22 +226,34 @@ def print_report(result: Dict, resume_name: str = "resume", jd_name: str = "job 
 
     # Score interpretation
     if score >= 85:
-        msg = col("  ✦ Excellent match — strong candidate for this role", C.BRIGHT_GREEN)
+        msg = col(
+            "  ✦ Excellent match — strong candidate for this role", C.BRIGHT_GREEN
+        )
     elif score >= 75:
         msg = col("  ✦ Good match — a few gaps to address", C.BRIGHT_GREEN)
     elif score >= 60:
-        msg = col("  ◈ Moderate match — worth applying but tailor your resume", C.BRIGHT_YELLOW)
+        msg = col(
+            "  ◈ Moderate match — worth applying but tailor your resume",
+            C.BRIGHT_YELLOW,
+        )
     elif score >= 45:
         msg = col("  ◈ Weak match — significant keyword gaps found", C.BRIGHT_YELLOW)
     else:
-        msg = col("  ✗ Poor match — consider different roles or major resume revision", C.BRIGHT_RED)
+        msg = col(
+            "  ✗ Poor match — consider different roles or major resume revision",
+            C.BRIGHT_RED,
+        )
     p(msg)
     p()
 
     # Quick stats
-    p(f"  {label('JD Keywords Found:')}  {col(str(result['total_jd_keywords']), C.BRIGHT_WHITE)}")
-    p(f"  {label('Matched:')}  {col(str(result['matched_count']), C.BRIGHT_GREEN)}  "
-      f"{label('Missing:')}  {col(str(result['missing_count']), C.BRIGHT_RED)}")
+    p(
+        f"  {label('JD Keywords Found:')}  {col(str(result['total_jd_keywords']), C.BRIGHT_WHITE)}"
+    )
+    p(
+        f"  {label('Matched:')}  {col(str(result['matched_count']), C.BRIGHT_GREEN)}  "
+        f"{label('Missing:')}  {col(str(result['missing_count']), C.BRIGHT_RED)}"
+    )
     p()
 
     # ── MATCHED KEYWORDS ──
@@ -237,7 +275,9 @@ def print_report(result: Dict, resume_name: str = "resume", jd_name: str = "job 
     # ── MISSING KEYWORDS ──
     if result["missing_by_category"]:
         p(section_line())
-        missing_note = col(f"({result['missing_count']} not found in your resume)", C.DIM)
+        missing_note = col(
+            f"({result['missing_count']} not found in your resume)", C.DIM
+        )
         p(f"  {bold(col('✗ MISSING KEYWORDS', C.BRIGHT_RED))}  {missing_note}")
         p(section_line())
         p()
@@ -285,7 +325,11 @@ def print_report(result: Dict, resume_name: str = "resume", jd_name: str = "job 
     sections = result["sections"]
     for section_name, present in sections.items():
         icon = col("✓", C.BRIGHT_GREEN) if present else col("✗", C.BRIGHT_RED)
-        status = col("Found", C.BRIGHT_GREEN) if present else col("Not detected", C.BRIGHT_RED)
+        status = (
+            col("Found", C.BRIGHT_GREEN)
+            if present
+            else col("Not detected", C.BRIGHT_RED)
+        )
         p(f"    {icon}  {section_name.capitalize().ljust(15)}  {status}")
     p()
 
@@ -302,7 +346,7 @@ def print_report(result: Dict, resume_name: str = "resume", jd_name: str = "job 
 
     # ── FOOTER ──
     p(header_line("═"))
-    p(center(col("ATS Scanner v1.0.0  ·  github.com/iamvk07/ats-scanner", C.DIM)))
+    p(center(col("ATS Scanner  ·  github.com/Calebe94/ats-scanner", C.DIM)))
     p(header_line("═"))
     p()
 
@@ -318,66 +362,66 @@ def _generate_recommendations(result: Dict) -> list:
 
     if score < 50:
         recs.append(
-            col("Critical: ", C.BRIGHT_RED, C.BOLD) +
-            "Your resume matches fewer than half the job keywords. "
+            col("Critical: ", C.BRIGHT_RED, C.BOLD)
+            + "Your resume matches fewer than half the job keywords. "
             "Consider heavily tailoring it for this specific role."
         )
 
     if missing.get("languages"):
         langs = ", ".join(missing["languages"][:3])
         recs.append(
-            col("Languages: ", C.BRIGHT_YELLOW, C.BOLD) +
-            f"The JD mentions {langs}. If you have experience with these, "
+            col("Languages: ", C.BRIGHT_YELLOW, C.BOLD)
+            + f"The JD mentions {langs}. If you have experience with these, "
             "add them to your skills section explicitly."
         )
 
     if missing.get("frameworks"):
         fws = ", ".join(missing["frameworks"][:3])
         recs.append(
-            col("Frameworks: ", C.BRIGHT_YELLOW, C.BOLD) +
-            f"{fws} appear in the JD. Even basic familiarity is worth mentioning."
+            col("Frameworks: ", C.BRIGHT_YELLOW, C.BOLD)
+            + f"{fws} appear in the JD. Even basic familiarity is worth mentioning."
         )
 
     if missing.get("devops_cloud"):
         recs.append(
-            col("Cloud/DevOps: ", C.BRIGHT_YELLOW, C.BOLD) +
-            "This role emphasizes cloud/DevOps skills. Highlight any Docker, "
+            col("Cloud/DevOps: ", C.BRIGHT_YELLOW, C.BOLD)
+            + "This role emphasizes cloud/DevOps skills. Highlight any Docker, "
             "CI/CD, or cloud platform experience you have."
         )
 
     if not sections.get("summary"):
         recs.append(
-            col("Add a Summary: ", C.BRIGHT_BLUE, C.BOLD) +
-            "A professional summary at the top lets you front-load keywords "
+            col("Add a Summary: ", C.BRIGHT_BLUE, C.BOLD)
+            + "A professional summary at the top lets you front-load keywords "
             "and immediately show your fit for the role."
         )
 
     if not sections.get("projects"):
         recs.append(
-            col("Projects Section: ", C.BRIGHT_BLUE, C.BOLD) +
-            "No projects section detected. Adding projects with relevant keywords "
+            col("Projects Section: ", C.BRIGHT_BLUE, C.BOLD)
+            + "No projects section detected. Adding projects with relevant keywords "
             "significantly boosts ATS scores."
         )
 
     if result["bonus_skills"]:
         recs.append(
-            col("Bonus Skills: ", C.BRIGHT_GREEN, C.BOLD) +
-            f"You have {len(result['bonus_skills'])} skills not required by this JD. "
+            col("Bonus Skills: ", C.BRIGHT_GREEN, C.BOLD)
+            + f"You have {len(result['bonus_skills'])} skills not required by this JD. "
             "That's great for your profile overall, but make sure the required ones "
             "are prominent."
         )
 
     if score >= 75:
         recs.append(
-            col("Looking Good: ", C.BRIGHT_GREEN, C.BOLD) +
-            "Strong match! Focus your cover letter on the 1-2 missing keywords "
+            col("Looking Good: ", C.BRIGHT_GREEN, C.BOLD)
+            + "Strong match! Focus your cover letter on the 1-2 missing keywords "
             "to address any gaps proactively."
         )
 
     if not recs:
         recs.append(
-            col("Great Match: ", C.BRIGHT_GREEN, C.BOLD) +
-            "Your resume aligns well with this job description. "
+            col("Great Match: ", C.BRIGHT_GREEN, C.BOLD)
+            + "Your resume aligns well with this job description. "
             "Ensure your bullet points tell compelling stories about impact."
         )
 
@@ -400,12 +444,16 @@ def save_report(result: Dict, output_path: str, resume_name: str, jd_name: str) 
         "bonus_skills": result["bonus_skills"],
         "sections": result["sections"],
         "recommendations": [
-            r.replace("\033[0m", "").replace("\033[1m", "")
-            .replace("\033[91m", "").replace("\033[92m", "")
-            .replace("\033[93m", "").replace("\033[94m", "")
-            .replace("\033[95m", "").replace("\033[96m", "")
+            r.replace("\033[0m", "")
+            .replace("\033[1m", "")
+            .replace("\033[91m", "")
+            .replace("\033[92m", "")
+            .replace("\033[93m", "")
+            .replace("\033[94m", "")
+            .replace("\033[95m", "")
+            .replace("\033[96m", "")
             for r in _generate_recommendations(result)
-        ]
+        ],
     }
 
     ext = os.path.splitext(output_path)[1].lower()
@@ -425,4 +473,6 @@ def save_report(result: Dict, output_path: str, resume_name: str, jd_name: str) 
             for cat, kws in result["missing_by_category"].items():
                 f.write(f"  {cat}: {', '.join(kws)}\n")
 
-    print(f"\n  {col('✓', C.BRIGHT_GREEN)} Report saved to {col(output_path, C.BRIGHT_WHITE)}\n")
+    print(
+        f"\n  {col('✓', C.BRIGHT_GREEN)} Report saved to {col(output_path, C.BRIGHT_WHITE)}\n"
+    )
