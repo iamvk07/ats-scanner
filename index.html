@@ -86,7 +86,7 @@ header{
 .input-card textarea{cursor:text;}
 .ic-head{
   padding:13px 16px;background:var(--bg2);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:8px;
+  display:flex;align-items:center;gap:8px;cursor:pointer;
 }
 .ic-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
 .ic-title{font-size:12px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:.8px;flex:1;}
@@ -122,7 +122,8 @@ header{
 .upload-zone{
   margin:14px;border:2px dashed var(--border2);border-radius:10px;
   padding:28px 20px;text-align:center;cursor:pointer;
-  transition:all .2s;
+  transition:all .2s;min-height:320px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
 }
 .upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:var(--adim);}
 .upload-zone.has{border-color:var(--green);background:var(--gdim);}
@@ -133,11 +134,14 @@ header{
 .uz-fname{font-size:12px;color:var(--green);margin-top:6px;font-family:var(--mono);}
 input[type=file]{display:none;}
 
+/* Paste wrapper — must propagate flex so textarea fills card */
+#resume-paste,#jd-paste{display:flex;flex-direction:column;flex:1;}
+
 /* Textarea */
 textarea.ta{
   flex:1;background:transparent;border:none;outline:none;
   resize:none;color:var(--text);font-family:var(--mono);
-  font-size:12px;line-height:1.7;padding:14px;min-height:180px;
+  font-size:12px;line-height:1.7;padding:14px;min-height:350px;
 }
 textarea.ta::placeholder{color:var(--muted3);opacity:0.8;}
 textarea.ta::-webkit-scrollbar{width:4px;}
@@ -379,20 +383,20 @@ hr{border:none;border-top:1px dashed var(--muted);margin:2rem auto;}
     <div class="input-grid">
 
       <!-- Resume -->
-      <div class="input-card upload-mode" id="resumeCard" onclick="cardClick('resume',event)">
+      <div class="input-card" id="resumeCard" onclick="cardClick('resume',event)">
         <div class="ic-head">
           <div class="ic-dot"></div>
           <span class="ic-title">Your Resume</span>
           <span class="ic-tip" data-tip="Include: contact info, education, work experience, projects, and skills section">?</span>
           <div class="tab-pair">
-            <button class="tp-btn" onclick="switchTab('resume','paste',this)">Paste</button>
-            <button class="tp-btn on" onclick="switchTab('resume','upload',this)">Upload</button>
+            <button class="tp-btn on" onclick="switchTab('resume','paste',this)">Paste</button>
+            <button class="tp-btn" onclick="switchTab('resume','upload',this)">Upload</button>
           </div>
         </div>
-        <div id="resume-paste" style="display:none;">
+        <div id="resume-paste">
           <textarea class="ta" id="resumeText" placeholder="Paste your full resume here..."></textarea>
         </div>
-        <div id="resume-upload">
+        <div id="resume-upload" style="display:none;">
           <input type="file" id="resumeFile" accept=".txt,.pdf,.tex,.docx" onchange="handleFile('resume',this)">
           <div class="upload-zone" id="resumeDrop"
             onclick="document.getElementById('resumeFile').click()"
@@ -408,21 +412,21 @@ hr{border:none;border-top:1px dashed var(--muted);margin:2rem auto;}
       </div>
 
       <!-- JD -->
-      <div class="input-card upload-mode" id="jdCard" onclick="cardClick('jd',event)">
+      <div class="input-card" id="jdCard" onclick="cardClick('jd',event)">
         <div class="ic-head">
           <div class="ic-dot"></div>
           <span class="ic-title">Job Description</span>
           <span class="ic-tip" data-tip="Include: required skills, responsibilities, nice-to-have skills, and qualifications">?</span>
           <div class="tab-pair">
-            <button class="tp-btn" onclick="switchTab('jd','paste',this)">Paste</button>
-            <button class="tp-btn on" onclick="switchTab('jd','upload',this)">Upload</button>
+            <button class="tp-btn on" onclick="switchTab('jd','paste',this)">Paste</button>
+            <button class="tp-btn" onclick="switchTab('jd','upload',this)">Upload</button>
           </div>
         </div>
-        <div id="jd-paste" style="display:none;">
-          <textarea class="ta" id="jdText" placeholder="Paste the full job posting here..."></textarea>
+        <div id="jd-paste">
+          <textarea class="ta" id="jdText" placeholder="Paste the full job description here..." lang="en" spellcheck="true"></textarea>
         </div>
-        <div id="jd-upload">
-          <input type="file" id="jdFile" accept=".txt,.tex,.docx" onchange="handleFile('jd',this)">
+        <div id="jd-upload" style="display:none;">
+          <input type="file" id="jdFile" accept=".txt,.pdf,.tex,.docx" onchange="handleFile('jd',this)">
           <div class="upload-zone" id="jdDrop"
             onclick="document.getElementById('jdFile').click()"
             ondragover="onDrag(event,true,'jdDrop')"
@@ -430,7 +434,7 @@ hr{border:none;border-top:1px dashed var(--muted);margin:2rem auto;}
             ondrop="onDrop(event,'jd')">
             <div class="uz-icon">📋</div>
             <div class="uz-text">Drop file or <strong>browse</strong></div>
-            <div class="uz-hint">.txt, .tex, or .docx files</div>
+            <div class="uz-hint">.txt, .pdf, .tex, or .docx supported</div>
             <div class="uz-fname" id="jdFName"></div>
           </div>
         </div>
@@ -865,11 +869,10 @@ function runScan(){
 let resumeContent='', jdContent='';
 
 function cardClick(which, event){
-  if(event.target.closest('.tp-btn') || event.target.closest('textarea') || event.target.closest('.upload-zone')) return;
-  const pre = which === 'resume' ? 'resume' : 'jd';
-  const uploadDiv = document.getElementById(`${pre}-upload`);
-  if(uploadDiv.style.display !== 'none'){
-    document.getElementById(`${pre}File`).click();
+  if(event.target.closest('.tp-btn') || event.target.closest('.ic-tip') || event.target.closest('textarea') || event.target.closest('.upload-zone')) return;
+  if(event.target.closest('.ic-head')){
+    document.getElementById(`${which==='resume'?'resume':'jd'}File`).click();
+    return;
   }
 }
 
@@ -1054,14 +1057,14 @@ function clearAll(){
   document.querySelectorAll('.upload-zone').forEach(z=>z.classList.remove('has','drag'));
   // Reset ring
   document.getElementById('scoreRing').style.strokeDashoffset='251';
-  // Reset tabs to upload default
+  // Reset tabs to paste default
   ['resume','jd'].forEach(pre=>{
-    document.getElementById(`${pre}-paste`).style.display='none';
-    document.getElementById(`${pre}-upload`).style.display='';
+    document.getElementById(`${pre}-paste`).style.display='';
+    document.getElementById(`${pre}-upload`).style.display='none';
     const pair=document.querySelector(`#${pre}Card .tab-pair`);
     pair.querySelectorAll('.tp-btn').forEach(b=>b.classList.remove('on'));
-    pair.querySelector('.tp-btn:last-child').classList.add('on');
-    document.getElementById(`${pre}Card`).classList.add('upload-mode');
+    pair.querySelector('.tp-btn:first-child').classList.add('on');
+    document.getElementById(`${pre}Card`).classList.remove('upload-mode');
   });
   window.scrollTo({top:0,behavior:'smooth'});
 }
