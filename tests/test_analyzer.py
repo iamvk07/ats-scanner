@@ -10,14 +10,19 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ats_scanner.analyzer import (
-    extract_keywords, compute_match, _score_to_grade,
-    get_word_frequencies, extract_ngrams
+    extract_keywords,
+    compute_match,
+    _score_to_grade,
+    _analyze_sections,
+    get_word_frequencies,
+    extract_ngrams,
+    SKILL_TAXONOMY,
+    STOP_WORDS,
 )
 from ats_scanner.extractor import clean_text, extract_text
 
 
 class TestKeywordExtraction(unittest.TestCase):
-
     def test_extracts_languages(self):
         text = "experience with python and java development"
         result = extract_keywords(text)
@@ -61,9 +66,42 @@ class TestKeywordExtraction(unittest.TestCase):
         self.assertIn("python", result.get("languages", []))
         self.assertIn("java", result.get("languages", []))
 
+    def test_c_not_matched_from_cpp(self):
+        text = "experienced c++ developer"
+        result = extract_keywords(text)
+        self.assertIn("c++", result.get("languages", []))
+        self.assertNotIn("c", result.get("languages", []))
+
+    def test_c_not_matched_from_csharp(self):
+        text = "experienced c# developer"
+        result = extract_keywords(text)
+        self.assertIn("c#", result.get("languages", []))
+        self.assertNotIn("c", result.get("languages", []))
+
+    def test_c_matched_standalone(self):
+        text = "experience with c programming"
+        result = extract_keywords(text)
+        self.assertIn("c", result.get("languages", []))
+
+
+class TestTaxonomyIntegrity(unittest.TestCase):
+    def test_no_cross_category_duplicates(self):
+        seen = {}
+        for cat, data in SKILL_TAXONOMY.items():
+            for kw in data["keywords"]:
+                self.assertNotIn(
+                    kw,
+                    seen,
+                    f'"{kw}" is in both "{seen.get(kw)}" and "{cat}"',
+                )
+                seen[kw] = cat
+
+    def test_taxonomy_keyword_count(self):
+        total = sum(len(d["keywords"]) for d in SKILL_TAXONOMY.values())
+        self.assertGreaterEqual(total, 209)
+
 
 class TestComputeMatch(unittest.TestCase):
-
     def setUp(self):
         self.strong_resume = clean_text("""
             python java javascript react flask postgresql docker git
@@ -102,9 +140,14 @@ class TestComputeMatch(unittest.TestCase):
     def test_result_keys(self):
         result = compute_match(self.strong_resume, self.strong_jd)
         required_keys = [
-            "score", "grade", "matched_count", "missing_count",
-            "matched_by_category", "missing_by_category",
-            "bonus_skills", "sections"
+            "score",
+            "grade",
+            "matched_count",
+            "missing_count",
+            "matched_by_category",
+            "missing_by_category",
+            "bonus_skills",
+            "sections",
         ]
         for key in required_keys:
             self.assertIn(key, result)
@@ -120,7 +163,6 @@ class TestComputeMatch(unittest.TestCase):
 
 
 class TestGrading(unittest.TestCase):
-
     def test_grade_a(self):
         self.assertEqual(_score_to_grade(90), "A")
         self.assertEqual(_score_to_grade(85), "A")
@@ -143,7 +185,6 @@ class TestGrading(unittest.TestCase):
 
 
 class TestTextExtraction(unittest.TestCase):
-
     def test_clean_text_lowercase(self):
         result = clean_text("Hello WORLD Python")
         self.assertEqual(result, "hello world python")
@@ -165,8 +206,10 @@ class TestTextExtraction(unittest.TestCase):
     def test_extract_txt_file(self):
         # Create temp file
         import tempfile
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt",
-                                         delete=False, encoding="utf-8") as f:
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False, encoding="utf-8"
+        ) as f:
             f.write("python developer with react experience")
             tmp_path = f.name
         try:
@@ -177,6 +220,7 @@ class TestTextExtraction(unittest.TestCase):
 
     def test_unsupported_file_type(self):
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
             f.write(b"fake")
             tmp = f.name
@@ -188,7 +232,6 @@ class TestTextExtraction(unittest.TestCase):
 
 
 class TestNgrams(unittest.TestCase):
-
     def test_bigrams(self):
         text = "python developer with react experience"
         ngrams = extract_ngrams(text, 2)
@@ -199,8 +242,38 @@ class TestNgrams(unittest.TestCase):
         self.assertEqual(ngrams, [])
 
 
-class TestWordFrequency(unittest.TestCase):
+class TestSectionDetection(unittest.TestCase):
+    def test_section_no_false_positive_developer(self):
+        text = "python developer\nskills: java, react"
+        sections = _analyze_sections(text)
+        self.assertFalse(sections["experience"])
 
+    def test_section_detects_header(self):
+        text = "some intro\nexperience\njunior dev at company"
+        sections = _analyze_sections(text)
+        self.assertTrue(sections["experience"])
+
+    def test_section_detects_projects_header(self):
+        text = "intro\nprojects\nbuilt a web app"
+        sections = _analyze_sections(text)
+        self.assertTrue(sections["projects"])
+
+
+class TestStopWordFiltering(unittest.TestCase):
+    def test_ngram_filters_all_stop_words(self):
+        resume = clean_text("python")
+        jd = clean_text("the python experience with good skills")
+        result = compute_match(resume, jd)
+        for phrase in result["missing_phrases"]:
+            words = phrase.split()
+            has_stop = any(w in STOP_WORDS for w in words)
+            self.assertFalse(
+                has_stop,
+                f'Phrase "{phrase}" contains a stop word and should be filtered',
+            )
+
+
+class TestWordFrequency(unittest.TestCase):
     def test_counts_words(self):
         text = "python python java python java"
         freq = get_word_frequencies(text)

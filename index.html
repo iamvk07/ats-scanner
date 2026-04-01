@@ -641,25 +641,26 @@ Include everything:
 const TAXONOMY = {
   languages: {
     weight:10, icon:'💻', label:'Languages',
-    kws:['python','java','javascript','typescript','c++','c#','golang','go','rust',
-         'kotlin','swift','ruby','php','scala','r','matlab','bash','shell','sql',
-         'html','css','sass','less','dart','perl']
+    kws:['python','java','javascript','typescript','c++','c#','c','golang','go','rust',
+         'kotlin','swift','ruby','php','scala','r','matlab','perl','bash','shell',
+         'powershell','sql','html','css','sass','less','dart']
   },
   frameworks: {
     weight:9, icon:'⚙️', label:'Frameworks & Libraries',
     kws:['react','angular','vue','next.js','nextjs','nuxt','svelte','node.js','nodejs',
-         'express','fastapi','flask','django','spring','spring boot','rails','laravel',
-         'tensorflow','pytorch','keras','pandas','numpy','scikit-learn','junit','pytest',
-         'jest','mocha','cypress','selenium','graphql','rest','grpc','tailwind','bootstrap',
-         'jquery','material-ui','redux','hibernate','.net','dotnet','asp.net']
+         'express','fastapi','flask','django','spring','spring boot','hibernate','rails',
+         'laravel','asp.net','.net','dotnet','tensorflow','pytorch','keras','pandas','numpy',
+         'scikit-learn','sklearn','matplotlib','junit','pytest','jest','mocha','cypress',
+         'selenium','graphql','rest','grpc','material-ui','tailwind','bootstrap',
+         'jquery','redux']
   },
   databases: {
     weight:8, icon:'🗄️', label:'Databases',
     kws:['postgresql','postgres','mysql','sqlite','mongodb','redis','elasticsearch',
          'cassandra','dynamodb','oracle','sql server','mssql','mariadb','firebase',
-         'supabase','nosql','sql','influxdb','neo4j']
+         'supabase','nosql','influxdb','neo4j']
   },
-  devops: {
+  devops_cloud: {
     weight:8, icon:'☁️', label:'DevOps & Cloud',
     kws:['docker','kubernetes','k8s','aws','azure','gcp','google cloud','terraform',
          'ansible','jenkins','github actions','gitlab ci','circleci','travis','ci/cd',
@@ -675,21 +676,25 @@ const TAXONOMY = {
   concepts: {
     weight:7, icon:'🧠', label:'Concepts & Practices',
     kws:['agile','scrum','kanban','tdd','bdd','oop','object oriented','functional programming',
-         'data structures','algorithms','design patterns','solid','mvc','rest api','restful',
-         'websocket','authentication','oauth','jwt','machine learning','deep learning',
-         'nlp','computer vision','unit testing','integration testing','code review',
-         'ci/cd','version control','debugging','security','encryption','microservices','api']
+         'data structures','algorithms','design patterns','solid','mvc','mvvm','api',
+         'rest api','restful','websocket','authentication','authorization','oauth','jwt',
+         'machine learning','deep learning','nlp','computer vision','data science',
+         'big data','etl','data pipeline','unit testing','integration testing','test driven',
+         'code review','debugging','performance optimization','security','encryption',
+         'version control']
   },
-  soft: {
+  soft_skills: {
     weight:4, icon:'🤝', label:'Soft Skills',
     kws:['communication','teamwork','collaboration','leadership','problem solving',
-         'analytical','fast learner','self motivated','adaptable','creative',
-         'critical thinking','time management','initiative','proactive','attention to detail']
+         'problem-solving','analytical','detail oriented','fast learner','self motivated',
+         'adaptable','creative','critical thinking','time management','multitasking',
+         'initiative','proactive','organized','attention to detail']
   },
   education: {
     weight:5, icon:'🎓', label:'Education',
     kws:['bachelor','master','phd','computer science','software engineering',
-         'information technology','mathematics','statistics','degree','diploma','certification']
+         'information technology','computer engineering','mathematics','statistics',
+         'electrical engineering','degree','diploma','certification','bootcamp']
   }
 };
 
@@ -706,13 +711,16 @@ const SECTION_ICONS = {contact:'📧',education:'🎓',experience:'💼',project
 // ── TEXT PROCESSING ───────────────────────────────────────────────────────
 function clean(text){ return text.toLowerCase().replace(/[^\w\s+#./]/g,' ').replace(/\s+/g,' ').trim(); }
 
+const SPECIAL_KW_PATTERNS = { 'c': /\bc(?![+#])\b/i, 'c++': /\bc\+\+/i, 'c#': /\bc#/i };
+
 function extractKws(text){
   const low = text.toLowerCase(), found = {};
   for(const [cat, data] of Object.entries(TAXONOMY)){
     const matches = [];
     for(const kw of data.kws){
-      if(new RegExp('\\b'+kw.replace(/[+.]/g,'\\$&').replace(/\//g,'\\/')+'\\b','i').test(low))
-        matches.push(kw);
+      const pat = SPECIAL_KW_PATTERNS[kw]
+        || new RegExp('\\b'+kw.replace(/[+.]/g,'\\$&').replace(/\//g,'\\/')+'\\b','i');
+      if(pat.test(low)) matches.push(kw);
     }
     if(matches.length) found[cat] = matches;
   }
@@ -764,7 +772,7 @@ function analyze(resumeText, jdText){
   // Missing phrases
   const jNg=new Set(getNgrams(jc)), rNg=new Set(getNgrams(rc));
   const missingPhrases=[...jNg]
-    .filter(p=>!rNg.has(p)&&!p.split(' ').every(w=>STOP.has(w)))
+    .filter(p=>!rNg.has(p)&&!p.split(' ').some(w=>STOP.has(w)))
     .sort((a,b)=>(jc.match(new RegExp(b,'g'))||[]).length-(jc.match(new RegExp(a,'g'))||[]).length)
     .slice(0,8);
 
@@ -772,11 +780,11 @@ function analyze(resumeText, jdText){
 
   const sections={
     contact:    /email|phone|@|\d{3}/.test(rc),
-    education:  /education|university|college|degree|bachelor|master/.test(rc),
-    experience: /experience|work|employment|intern|developer|engineer/.test(rc),
-    projects:   /project|built|developed|created|designed/.test(rc),
-    skills:     /skill|proficien|technolog|language/.test(rc),
-    summary:    /summary|objective|profile|about me/.test(rc),
+    education:  /(?:^|\n)\s*(?:education|university|college|degree|bachelor|master)/m.test(rc),
+    experience: /(?:^|\n)\s*(?:experience|work\s+history|employment|professional\s+experience)/m.test(rc),
+    projects:   /(?:^|\n)\s*(?:projects?|personal\s+projects?|academic\s+projects?)/m.test(rc),
+    skills:     /(?:^|\n)\s*(?:skills?|technical\s+skills?|core\s+competencies)/m.test(rc),
+    summary:    /(?:^|\n)\s*(?:summary|objective|professional\s+summary|profile|about\s+me)/m.test(rc),
   };
 
   const grade = score>=85?'A':score>=75?'B':score>=60?'C':score>=45?'D':'F';
@@ -823,10 +831,10 @@ function generateRecs(r){
   if(score<50) recs.push('<strong>Critical:</strong> Under 50% match. Heavily tailor this resume before applying — add relevant keywords throughout.');
   if(missingByCat.languages?.length) recs.push(`<strong>Languages:</strong> The JD mentions <em>${missingByCat.languages.slice(0,3).join(', ')}</em>. If you have any experience, add them explicitly to your skills section.`);
   if(missingByCat.frameworks?.length) recs.push(`<strong>Frameworks:</strong> <em>${missingByCat.frameworks.slice(0,3).join(', ')}</em> appear in the JD. Even basic familiarity is worth mentioning.`);
-  if(missingByCat.devops?.length) recs.push('<strong>DevOps/Cloud:</strong> This role emphasizes cloud skills. Highlight any Docker, CI/CD, or cloud platform experience from your projects.');
+  if(missingByCat.devops_cloud?.length) recs.push('<strong>DevOps/Cloud:</strong> This role emphasizes cloud skills. Highlight any Docker, CI/CD, or cloud platform experience from your projects.');
   if(!sections.summary) recs.push('<strong>Add a Summary:</strong> A professional summary at the top lets you front-load keywords and immediately show your fit.');
   if(!sections.projects) recs.push('<strong>Projects Section Missing:</strong> No projects detected. Adding projects with relevant tech stacks significantly boosts ATS scores.');
-  if(missingByCat.soft?.length) recs.push(`<strong>Soft Skills:</strong> The JD mentions <em>${missingByCat.soft.slice(0,3).join(', ')}</em>. Weave these naturally into your bullet points.`);
+  if(missingByCat.soft_skills?.length) recs.push(`<strong>Soft Skills:</strong> The JD mentions <em>${missingByCat.soft_skills.slice(0,3).join(', ')}</em>. Weave these naturally into your bullet points.`);
   if(bonusSkills.length>5) recs.push(`<strong>Bonus Skills:</strong> You have ${bonusSkills.length} skills not in this JD. Great overall — just make sure the required ones are prominent.`);
   if(score>=75) recs.push('<strong>Looking Good:</strong> Strong match! Use your cover letter to address any remaining gaps and emphasize measurable impact.');
   if(!recs.length) recs.push('<strong>Great Match:</strong> Your resume aligns well. Focus on adding measurable outcomes to your bullet points.');
