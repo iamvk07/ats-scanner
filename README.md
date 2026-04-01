@@ -35,7 +35,7 @@ Output:
 ═══════════════════════════════════════════════════════════════════════
                          ATS SCANNER
                 Resume vs Job Description Analyzer
-               by Vedant Kadam · github.com/iamvk07
+               by calebe94 · github.com/Calebe94
 
   Resume:            demo_resume.txt
   Job Description:   demo_job_description.txt
@@ -55,7 +55,7 @@ Output:
 No installation needed. Just clone and run:
 
 ```bash
-git clone https://github.com/iamvk07/ats-scanner
+git clone https://github.com/Calebe94/ats-scanner
 cd ats-scanner
 python scan.py --help
 ```
@@ -184,10 +184,10 @@ Most Python CLI tools require installing packages like `click`, `rich`, or `colo
 
 ## Author
 
-**Vedant Kadam** — CS Student @ University of New Brunswick
+**Edimar Calebe Castanho** (calebe94) — Computer Engineer
 
-- GitHub: [github.com/iamvk07](https://github.com/iamvk07)
-- LinkedIn: [linkedin.com/in/vedantkadam07](https://linkedin.com/in/vedantkadam07)
+- GitHub: [github.com/Calebe94](https://github.com/Calebe94)
+- Blog: [blog.calebe.dev.br](https://blog.calebe.dev.br)
 
 ## License
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 ATS Scanner — Resume vs Job Description Analyzer
-Author: Vedant Kadam
-GitHub: github.com/iamvk07
+Author: Edimar Calebe Castanho (calebe94)
+GitHub: github.com/Calebe94/ats-scanner
 """
 
 import sys
