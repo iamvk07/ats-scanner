@@ -304,6 +304,22 @@ def print_report(
             p(f"    {col('→', C.BRIGHT_YELLOW)}  {phrase}")
         p()
 
+    # ── DYNAMIC JD KEYWORDS ──
+    dynamic_missing = result.get("dynamic_missing", [])
+    dynamic_matched = result.get("dynamic_matched", [])
+    if dynamic_missing or dynamic_matched:
+        p(section_line())
+        p(f"  {bold(col('⚡ ADDITIONAL JD REQUIREMENTS', C.BRIGHT_YELLOW))}")
+        p(section_line())
+        p()
+        p(col("  Terms from the JD not in our standard taxonomy:", C.DIM))
+        p()
+        for kw in dynamic_matched[:10]:
+            p(f"    {col('✓', C.BRIGHT_GREEN)}  {kw}  ({col('found', C.BRIGHT_GREEN)})")
+        for kw in dynamic_missing[:10]:
+            p(f"    {col('✗', C.BRIGHT_RED)}  {kw}  ({col('missing', C.BRIGHT_RED)})")
+        p()
+
     # ── BONUS SKILLS ──
     if result["bonus_skills"]:
         p(section_line())
@@ -314,6 +330,36 @@ def print_report(
         tag_list = [tag_bonus(k) for k in result["bonus_skills"]]
         for tl in wrap_tags(tag_list):
             p(tl)
+        p()
+
+    # ── YEARS OF EXPERIENCE ──
+    yoe_reqs = result.get("yoe_requirements", [])
+    resume_yoe = result.get("resume_yoe", {})
+    if yoe_reqs:
+        p(section_line())
+        p(f"  {bold('YEARS OF EXPERIENCE CHECK')}")
+        p(section_line())
+        p()
+        if resume_yoe.get("has_dates"):
+            total_yrs = resume_yoe["total_years"]
+            p(
+                f"  {label('Estimated YoE:')}  {col(f'~{total_yrs} years', C.BRIGHT_WHITE)}"
+            )
+        else:
+            p(
+                f"  {label('Estimated YoE:')}  {col('Could not detect date ranges', C.BRIGHT_YELLOW)}"
+            )
+        p()
+        for req in yoe_reqs:
+            skill_str = f" of {req['skill']}" if req.get("skill") else ""
+            req_str = f"{req['years']}+ years{skill_str}"
+            if (
+                resume_yoe.get("has_dates")
+                and resume_yoe["total_years"] >= req["years"]
+            ):
+                p(f"    {col('PASS', C.BRIGHT_GREEN)}  {req_str}")
+            else:
+                p(f"    {col('WARN', C.BRIGHT_YELLOW)}  {req_str}")
         p()
 
     # ── RESUME SECTIONS ──
@@ -332,6 +378,34 @@ def print_report(
         )
         p(f"    {icon}  {section_name.capitalize().ljust(15)}  {status}")
     p()
+
+    # ── KEYWORD DENSITY ──
+    density = result.get("keyword_density", {})
+    if density.get("total_words", 0) > 0:
+        p(section_line())
+        p(f"  {bold('KEYWORD DENSITY')}")
+        p(section_line())
+        p()
+        pct = density["density_pct"]
+        if density["status"] == "good":
+            color = C.BRIGHT_GREEN
+            msg = "Healthy density"
+        elif density["status"] == "warning":
+            color = C.BRIGHT_YELLOW
+            msg = "Slightly high — review for natural flow"
+        else:
+            color = C.BRIGHT_RED
+            msg = "Too high — ATS may flag as keyword stuffing"
+        p(f"  {label('Density:')}  {col(f'{pct}%', color)}  ({msg})")
+        p(f"  {label('Optimal range:')}  {col('2-3%', C.DIM)}")
+        if density["stuffed_keywords"]:
+            p()
+            p(col("  Over-repeated keywords (>4 times):", C.BRIGHT_YELLOW))
+            for item in density["stuffed_keywords"]:
+                p(
+                    f"    {col('!', C.BRIGHT_YELLOW)}  {item['keyword']} ({item['count']}x)"
+                )
+        p()
 
     # ── RECOMMENDATIONS ──
     p(section_line())
@@ -354,75 +428,131 @@ def print_report(
 
 
 def _generate_recommendations(result: Dict) -> list:
-    """Generate actionable recommendations based on analysis."""
+    """Generate context-aware, actionable recommendations using all analysis signals."""
     recs = []
     score = result["score"]
     missing = result["missing_by_category"]
     sections = result["sections"]
+    density = result.get("keyword_density", {})
+    yoe = result.get("yoe_requirements", [])
+    resume_yoe = result.get("resume_yoe", {})
+    dynamic_missing = result.get("dynamic_missing", [])
+    keyword_placement = result.get("keyword_placement", {})
 
     if score < 50:
         recs.append(
             col("Critical: ", C.BRIGHT_RED, C.BOLD)
-            + "Your resume matches fewer than half the job keywords. "
-            "Consider heavily tailoring it for this specific role."
+            + f"Your resume matches only {score:.0f}% of this JD. "
+            "Focus on adding the top missing keywords from each category below."
         )
 
-    if missing.get("languages"):
-        langs = ", ".join(missing["languages"][:3])
-        recs.append(
-            col("Languages: ", C.BRIGHT_YELLOW, C.BOLD)
-            + f"The JD mentions {langs}. If you have experience with these, "
-            "add them to your skills section explicitly."
-        )
+    for req in yoe:
+        skill_str = f" of {req['skill']}" if req.get("skill") else ""
+        if not resume_yoe.get("has_dates"):
+            recs.append(
+                col("Experience Dates: ", C.BRIGHT_YELLOW, C.BOLD)
+                + f"The JD requires {req['years']}+ years{skill_str}. "
+                "Add clear date ranges (e.g., 'Jan 2020 - Present') to your "
+                "experience entries so ATS can verify tenure."
+            )
+            break
+        elif resume_yoe["total_years"] < req["years"]:
+            recs.append(
+                col("Experience Gap: ", C.BRIGHT_YELLOW, C.BOLD)
+                + f"The JD requires {req['years']}+ years{skill_str}, "
+                f"but your resume shows ~{resume_yoe['total_years']} years. "
+                "Consider including freelance work, internships, or relevant "
+                "academic projects to bridge the gap."
+            )
 
-    if missing.get("frameworks"):
-        fws = ", ".join(missing["frameworks"][:3])
-        recs.append(
-            col("Frameworks: ", C.BRIGHT_YELLOW, C.BOLD)
-            + f"{fws} appear in the JD. Even basic familiarity is worth mentioning."
-        )
-
-    if missing.get("devops_cloud"):
-        recs.append(
-            col("Cloud/DevOps: ", C.BRIGHT_YELLOW, C.BOLD)
-            + "This role emphasizes cloud/DevOps skills. Highlight any Docker, "
-            "CI/CD, or cloud platform experience you have."
-        )
+    for cat in ["languages", "frameworks", "databases", "devops_cloud"]:
+        if missing.get(cat):
+            kws = ", ".join(missing[cat][:3])
+            cat_name = CAT_DISPLAY.get(cat, ("", cat))[1]
+            recs.append(
+                col(f"{cat_name}: ", C.BRIGHT_YELLOW, C.BOLD)
+                + f"Missing {kws}. "
+                + (
+                    "Add to your Skills section AND mention in Experience bullets "
+                    "for maximum ATS weight."
+                    if not sections.get("skills")
+                    else "Add these to your Skills section explicitly."
+                )
+            )
 
     if not sections.get("summary"):
         recs.append(
             col("Add a Summary: ", C.BRIGHT_BLUE, C.BOLD)
-            + "A professional summary at the top lets you front-load keywords "
-            "and immediately show your fit for the role."
+            + "A professional summary lets you front-load 4-6 core keywords "
+            "from the JD. ATS systems weight summary keywords highly."
         )
 
-    if not sections.get("projects"):
+    if not sections.get("skills"):
         recs.append(
-            col("Projects Section: ", C.BRIGHT_BLUE, C.BOLD)
-            + "No projects section detected. Adding projects with relevant keywords "
-            "significantly boosts ATS scores."
+            col("Add a Skills Section: ", C.BRIGHT_BLUE, C.BOLD)
+            + "A dedicated Skills section gets a 1.5x weight multiplier in "
+            "most ATS systems. List your technical skills explicitly."
         )
 
-    if result["bonus_skills"]:
+    if not sections.get("projects") and score < 75:
         recs.append(
-            col("Bonus Skills: ", C.BRIGHT_GREEN, C.BOLD)
-            + f"You have {len(result['bonus_skills'])} skills not required by this JD. "
-            "That's great for your profile overall, but make sure the required ones "
-            "are prominent."
+            col("Add Projects: ", C.BRIGHT_BLUE, C.BOLD)
+            + "A Projects section lets you demonstrate skills with context. "
+            "'Built X using Python and React' scores higher than just listing them."
         )
 
-    if score >= 75:
+    skills_kws = set(keyword_placement.get("skills", []))
+    exp_kws = set(keyword_placement.get("experience", []))
+    only_in_skills = skills_kws - exp_kws
+    if only_in_skills and len(only_in_skills) > 2:
+        kws = ", ".join(list(only_in_skills)[:3])
         recs.append(
-            col("Looking Good: ", C.BRIGHT_GREEN, C.BOLD)
-            + "Strong match! Focus your cover letter on the 1-2 missing keywords "
-            "to address any gaps proactively."
+            col("Prove Your Skills: ", C.BRIGHT_CYAN, C.BOLD)
+            + f"{kws} appear only in your Skills list. "
+            "Mention them in Experience bullets too — ATS rewards the "
+            "'Claim + Proof' pattern (skill listed AND demonstrated)."
+        )
+
+    if density.get("status") == "danger":
+        recs.append(
+            col("Keyword Stuffing Alert: ", C.BRIGHT_RED, C.BOLD)
+            + f"Your keyword density is {density['density_pct']}% (optimal: 2-3%). "
+            "Modern ATS systems penalize over-repetition. Remove duplicate mentions."
+        )
+    elif density.get("stuffed_keywords"):
+        stuffed = ", ".join(s["keyword"] for s in density["stuffed_keywords"][:3])
+        recs.append(
+            col("Repetition Warning: ", C.BRIGHT_YELLOW, C.BOLD)
+            + f"{stuffed} appear more than 4 times. "
+            "BM25 scoring saturates after 3-4 mentions — extra repetitions add zero value."
+        )
+
+    if dynamic_missing and len(dynamic_missing) > 2:
+        kws = ", ".join(dynamic_missing[:3])
+        recs.append(
+            col("JD-Specific Terms: ", C.BRIGHT_YELLOW, C.BOLD)
+            + f"The JD mentions {kws} which aren't standard taxonomy keywords. "
+            "If you have experience with these, add them to your resume."
+        )
+
+    if score >= 85:
+        recs.append(
+            col("Excellent Match: ", C.BRIGHT_GREEN, C.BOLD)
+            + "Strong alignment! Focus your cover letter on the 1-2 remaining "
+            "gaps. Your resume should pass most ATS filters."
+        )
+    elif score >= 75:
+        recs.append(
+            col("Good Match: ", C.BRIGHT_GREEN, C.BOLD)
+            + "Solid foundation. Address the missing keywords above and you'll "
+            "be in the top tier of applicants for ATS scoring."
         )
 
     if not recs:
         recs.append(
-            col("Great Match: ", C.BRIGHT_GREEN, C.BOLD)
-            + "Your resume aligns well with this job description. "
-            "Ensure your bullet points tell compelling stories about impact."
+            col("Well Optimized: ", C.BRIGHT_GREEN, C.BOLD)
+            + "Your resume is well-aligned with this JD. "
+            "Focus on quantifying achievements in your bullet points."
         )
 
     return recs

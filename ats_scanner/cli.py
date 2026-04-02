@@ -174,7 +174,7 @@ def run_demo() -> None:
     print(col("\n  Running demo analysis...\n", C.BRIGHT_YELLOW))
     resume_text = clean_text(demo_resume)
     jd_text = clean_text(demo_jd)
-    result = compute_match(resume_text, jd_text)
+    result = compute_match(resume_text, jd_text, resume_raw=demo_resume, jd_raw=demo_jd)
     print_report(result, "demo_resume.txt", "demo_job_description.txt")
 
 
@@ -258,7 +258,7 @@ def main(argv=None) -> int:
 
     resume_clean = clean_text(resume_raw)
     jd_clean = clean_text(jd_raw)
-    result = compute_match(resume_clean, jd_clean)
+    result = compute_match(resume_clean, jd_clean, resume_raw=resume_raw, jd_raw=jd_raw)
 
     # Output
     if args.score_only:

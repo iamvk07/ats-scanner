@@ -3,8 +3,10 @@ Keyword analysis engine.
 Extracts, weights, and matches keywords between resume and job description.
 """
 
+import math
 import re
 from collections import Counter
+from datetime import datetime
 from typing import Dict, List, Tuple, Set
 
 
@@ -15,6 +17,105 @@ SPECIAL_PATTERNS = {
     "c++": r"\bc\+\+",
     "c#": r"\bc#",
 }
+
+# ── SYNONYM / ALIAS MAP ──────────────────────────────────────────────────────
+# Maps alternative names to their canonical form in SKILL_TAXONOMY.
+# Aliases here must NOT also appear in SKILL_TAXONOMY (cleaned up in Step 0).
+SYNONYM_MAP = {
+    # Languages
+    "js": "javascript",
+    "es6": "javascript",
+    "es7": "javascript",
+    "ts": "typescript",
+    "golang": "go",
+    "c sharp": "c#",
+    "csharp": "c#",
+    "cplusplus": "c++",
+    "py": "python",
+    "rb": "ruby",
+    # Frameworks
+    "nextjs": "next.js",
+    "nodejs": "node.js",
+    "node": "node.js",
+    "expressjs": "express",
+    "express.js": "express",
+    "aspnet": "asp.net",
+    "asp.net core": "asp.net",
+    "dotnet": ".net",
+    "dot net": ".net",
+    "scikit learn": "scikit-learn",
+    "sklearn": "scikit-learn",
+    "tf": "tensorflow",
+    "material ui": "material-ui",
+    "mui": "material-ui",
+    "tailwindcss": "tailwind",
+    "tailwind css": "tailwind",
+    # Databases
+    "postgres": "postgresql",
+    "pg": "postgresql",
+    "mongo": "mongodb",
+    "elastic": "elasticsearch",
+    "dynamo": "dynamodb",
+    "ms sql": "sql server",
+    "mssql": "sql server",
+    "maria": "mariadb",
+    # DevOps & Cloud
+    "k8s": "kubernetes",
+    "kube": "kubernetes",
+    "amazon web services": "aws",
+    "google cloud platform": "gcp",
+    "google cloud": "gcp",
+    "microsoft azure": "azure",
+    "gh actions": "github actions",
+    "github ci": "github actions",
+    "gitlab cicd": "gitlab ci",
+    "ci cd": "ci/cd",
+    "cicd": "ci/cd",
+    "continuous integration": "ci/cd",
+    "continuous deployment": "ci/cd",
+    # Tools
+    "visual studio code": "vs code",
+    "vscode": "vs code",
+    # Concepts
+    "object oriented programming": "oop",
+    "object-oriented": "oop",
+    "object oriented": "oop",
+    "test driven development": "tdd",
+    "test-driven development": "tdd",
+    "behavior driven development": "bdd",
+    "behavior-driven development": "bdd",
+    "representational state transfer": "rest",
+    "restful api": "rest api",
+    "restful": "rest api",
+    "json web token": "jwt",
+    "json web tokens": "jwt",
+    "natural language processing": "nlp",
+    "ml": "machine learning",
+    "dl": "deep learning",
+    "cv": "computer vision",
+    "ds": "data science",
+    # Soft Skills
+    "problem solving": "problem-solving",
+    "detail-oriented": "detail oriented",
+    "self-motivated": "self motivated",
+}
+
+# Pre-sorted by alias length descending so multi-word aliases are replaced first
+_SORTED_SYNONYMS = sorted(SYNONYM_MAP.items(), key=lambda x: -len(x[0]))
+
+
+def normalize_text(text: str) -> str:
+    """
+    Replace known synonyms/aliases with their canonical taxonomy form.
+    Expects already-lowercased input. Processes longer aliases first
+    to avoid partial replacements (e.g., 'amazon web services' before 'aws').
+    """
+    result = text
+    for alias, canonical in _SORTED_SYNONYMS:
+        pattern = r"\b" + re.escape(alias) + r"\b"
+        result = re.sub(pattern, canonical, result)
+    return result
+
 
 # ── KEYWORD TAXONOMY ──────────────────────────────────────────────────────────
 # Weighted skill categories. Higher weight = more important for ATS matching.
@@ -31,7 +132,6 @@ SKILL_TAXONOMY = {
             "c#",
             "c",
             "go",
-            "golang",
             "rust",
             "kotlin",
             "swift",
@@ -59,11 +159,9 @@ SKILL_TAXONOMY = {
             "angular",
             "vue",
             "next.js",
-            "nextjs",
             "nuxt",
             "svelte",
             "node.js",
-            "nodejs",
             "express",
             "fastapi",
             "flask",
@@ -75,14 +173,12 @@ SKILL_TAXONOMY = {
             "laravel",
             "asp.net",
             ".net",
-            "dotnet",
             "tensorflow",
             "pytorch",
             "keras",
             "pandas",
             "numpy",
             "scikit-learn",
-            "sklearn",
             "matplotlib",
             "junit",
             "pytest",
@@ -104,7 +200,6 @@ SKILL_TAXONOMY = {
         "weight": 8,
         "keywords": [
             "postgresql",
-            "postgres",
             "mysql",
             "sqlite",
             "mongodb",
@@ -114,7 +209,6 @@ SKILL_TAXONOMY = {
             "dynamodb",
             "oracle",
             "sql server",
-            "mssql",
             "mariadb",
             "firebase",
             "supabase",
@@ -128,11 +222,9 @@ SKILL_TAXONOMY = {
         "keywords": [
             "docker",
             "kubernetes",
-            "k8s",
             "aws",
             "azure",
             "gcp",
-            "google cloud",
             "terraform",
             "ansible",
             "jenkins",
@@ -191,7 +283,6 @@ SKILL_TAXONOMY = {
             "tdd",
             "bdd",
             "oop",
-            "object oriented",
             "functional programming",
             "data structures",
             "algorithms",
@@ -201,7 +292,6 @@ SKILL_TAXONOMY = {
             "mvvm",
             "api",
             "rest api",
-            "restful",
             "websocket",
             "authentication",
             "authorization",
@@ -233,7 +323,6 @@ SKILL_TAXONOMY = {
             "teamwork",
             "collaboration",
             "leadership",
-            "problem solving",
             "problem-solving",
             "analytical",
             "detail oriented",
@@ -408,6 +497,82 @@ def extract_keywords(text: str) -> Dict[str, List[str]]:
     return found
 
 
+# ── DYNAMIC JD KEYWORD EXTRACTION ────────────────────────────────────────────
+
+REQUIREMENT_SIGNALS = re.compile(
+    r"(?:experience\s+(?:with|in|using)|"
+    r"proficien(?:t|cy)\s+(?:with|in)|"
+    r"knowledge\s+of|"
+    r"familiar(?:ity)?\s+with|"
+    r"expertise\s+(?:in|with)|"
+    r"(?:must|should)\s+(?:have|know)|"
+    r"required|preferred|nice\s+to\s+have|"
+    r"skills?\s*:)"
+    r"\s+(.+?)(?:\.|,|;|\n|$)",
+    re.IGNORECASE,
+)
+
+BULLET_PATTERN = re.compile(r"(?:^|\n)\s*(?:[-*+]|\d+[.)]\s)\s*(.+?)(?:\n|$)")
+
+
+def extract_dynamic_keywords(jd_text: str, taxonomy_keywords: Set[str]) -> List[str]:
+    """
+    Extract potential skill keywords from JD text that are NOT in the
+    static taxonomy. Uses requirement contexts, capitalized terms, and
+    bullet points as signals.
+    """
+    candidates = set()
+
+    # 1. Terms from requirement signal contexts
+    for match in REQUIREMENT_SIGNALS.finditer(jd_text):
+        phrase = match.group(1).strip()
+        for term in re.split(r",\s*|\s+and\s+|\s+or\s+", phrase):
+            term = term.strip().lower()
+            term = re.sub(r"[^\w\s\+#\.\-]", "", term).strip()
+            if (
+                len(term) > 2
+                and len(term.split()) <= 3
+                and term not in STOP_WORDS
+                and term not in taxonomy_keywords
+            ):
+                candidates.add(term)
+
+    # 2. Capitalized terms (proper nouns / tool names) from original text
+    cap_pattern = re.compile(r"\b([A-Z][a-zA-Z0-9\+#\.]*(?:\s+[A-Z][a-zA-Z0-9]*)*)\b")
+    for match in cap_pattern.finditer(jd_text):
+        term = match.group(1).strip()
+        term_lower = term.lower()
+        pos = match.start()
+        is_sentence_start = (
+            pos == 0
+            or jd_text[pos - 1] in ".!?\n"
+            or (pos >= 2 and jd_text[pos - 2 : pos] in ". ")
+        )
+        if (
+            len(term_lower) > 2
+            and term_lower not in STOP_WORDS
+            and term_lower not in taxonomy_keywords
+            and not is_sentence_start
+        ):
+            candidates.add(term_lower)
+
+    # 3. Terms from bullet points
+    for match in BULLET_PATTERN.finditer(jd_text):
+        line = match.group(1).strip()
+        words = [w.strip().lower() for w in re.split(r",\s*|\s+and\s+", line)]
+        for w in words:
+            w = re.sub(r"[^\w\s\+#\.\-]", "", w).strip()
+            if (
+                len(w) > 2
+                and w not in STOP_WORDS
+                and w not in taxonomy_keywords
+                and len(w.split()) <= 3
+            ):
+                candidates.add(w)
+
+    return sorted(candidates)
+
+
 def extract_ngrams(text: str, n: int = 2) -> List[str]:
     """Extract meaningful n-grams from text."""
     words = [
@@ -428,13 +593,334 @@ def get_word_frequencies(text: str) -> Counter:
     return Counter(filtered)
 
 
-def compute_match(resume_text: str, jd_text: str) -> Dict:
+def jaccard_similarity(text_a: str, text_b: str) -> float:
+    """
+    Compute Jaccard similarity between two texts based on meaningful words.
+    Returns 0.0-1.0 where 1.0 means identical word sets.
+    Reuses get_word_frequencies() to keep word-extraction logic in one place.
+    """
+    words_a = set(get_word_frequencies(text_a).keys())
+    words_b = set(get_word_frequencies(text_b).keys())
+    if not words_a and not words_b:
+        return 1.0
+    if not words_a or not words_b:
+        return 0.0
+    intersection = words_a & words_b
+    union = words_a | words_b
+    return len(intersection) / len(union)
+
+
+def bm25_score(
+    query_terms: List[str],
+    doc_freq: Counter,
+    doc_length: int,
+    avg_doc_length: float,
+    corpus_size: int = 2,
+    doc_containing: Dict[str, int] = None,
+    k1: float = 1.5,
+    b: float = 0.75,
+) -> float:
+    """
+    BM25 relevance score for a document against query terms.
+    Uses IDF with smoothing, term frequency saturation, and length normalization.
+    """
+    if doc_containing is None:
+        doc_containing = {}
+
+    score = 0.0
+    for term in query_terms:
+        tf = doc_freq.get(term, 0)
+        n_containing = doc_containing.get(term, 0)
+
+        idf = math.log((corpus_size - n_containing + 0.5) / (n_containing + 0.5) + 1)
+
+        if avg_doc_length > 0:
+            numerator = tf * (k1 + 1)
+            denominator = tf + k1 * (1 - b + b * (doc_length / avg_doc_length))
+            score += idf * (numerator / denominator)
+
+    return score
+
+
+def bm25_similarity(text_a: str, text_b: str) -> float:
+    """
+    Normalized BM25 similarity between two texts (0.0-1.0).
+    Uses text_b as query (JD) and text_a as document (resume).
+    Normalizes by self-score (document scored against itself).
+    """
+    freq_a = get_word_frequencies(text_a)
+    freq_b = get_word_frequencies(text_b)
+
+    if not freq_a or not freq_b:
+        if not freq_a and not freq_b:
+            return 1.0
+        return 0.0
+
+    words_a = set(freq_a.keys())
+    words_b = set(freq_b.keys())
+    all_words = words_a | words_b
+
+    len_a = sum(freq_a.values())
+    len_b = sum(freq_b.values())
+    avg_len = (len_a + len_b) / 2
+
+    doc_containing = {}
+    for w in all_words:
+        count = 0
+        if w in words_a:
+            count += 1
+        if w in words_b:
+            count += 1
+        doc_containing[w] = count
+
+    query_terms = list(freq_b.keys())
+
+    actual = bm25_score(
+        query_terms,
+        freq_a,
+        len_a,
+        avg_len,
+        corpus_size=2,
+        doc_containing=doc_containing,
+    )
+
+    max_score = bm25_score(
+        query_terms,
+        freq_b,
+        len_b,
+        avg_len,
+        corpus_size=2,
+        doc_containing=doc_containing,
+    )
+
+    if max_score <= 0:
+        return 0.0
+
+    return min(1.0, actual / max_score)
+
+
+def extract_ngrams_weighted(text: str, max_n: int = 4) -> Counter:
+    """Extract n-grams (n=2 to max_n) with frequency counts."""
+    words = [
+        w
+        for w in re.findall(r"\b[a-z][a-z0-9\+#\.]*\b", text.lower())
+        if w not in STOP_WORDS and len(w) > 2
+    ]
+    ngram_counts = Counter()
+    for n in range(2, max_n + 1):
+        for i in range(len(words) - n + 1):
+            ngram = " ".join(words[i : i + n])
+            ngram_counts[ngram] += 1
+    return ngram_counts
+
+
+def calculate_keyword_density(text: str, keywords: Set[str]) -> Dict:
+    """
+    Calculate keyword density metrics. Flags keywords repeated >4 times
+    as stuffed (BM25 saturation point).
+    """
+    words = re.findall(r"\b[a-z][a-z0-9\+#\.]*\b", text.lower())
+    total_words = len(words)
+    if total_words == 0:
+        return {
+            "total_words": 0,
+            "keyword_mentions": 0,
+            "density_pct": 0.0,
+            "stuffed_keywords": [],
+            "status": "good",
+        }
+
+    keyword_mentions = 0
+    keyword_counts = Counter()
+    for kw in keywords:
+        if kw in SPECIAL_PATTERNS:
+            pattern = SPECIAL_PATTERNS[kw]
+        else:
+            pattern = r"\b" + re.escape(kw) + r"\b"
+        count = len(re.findall(pattern, text.lower()))
+        if count > 0:
+            keyword_counts[kw] = count
+            keyword_mentions += count
+
+    density = (keyword_mentions / total_words) * 100
+
+    stuffed = [
+        {"keyword": kw, "count": count}
+        for kw, count in keyword_counts.items()
+        if count > 4
+    ]
+
+    return {
+        "total_words": total_words,
+        "keyword_mentions": keyword_mentions,
+        "density_pct": round(density, 1),
+        "stuffed_keywords": stuffed,
+        "status": "good"
+        if density <= 3.0
+        else ("warning" if density <= 5.0 else "danger"),
+    }
+
+
+# ── YEARS OF EXPERIENCE DETECTION ─────────────────────────────────────────────
+
+YOE_PATTERN = re.compile(
+    r"(\d+)\+?\s*(?:[-–]?\s*\d+)?\s*"
+    r"(?:years?|yrs?)\s*"
+    r"(?:of\s+)?(?:experience|exp\.?|professional)?"
+    r"(?:\s+(?:with|in|using|of)\s+(.+?))?(?:\.|,|;|\n|$)",
+    re.IGNORECASE,
+)
+
+DATE_RANGE_PATTERN = re.compile(
+    r"(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*"
+    r"(\d{4}))\s*(?:[-–—]|to)\s*"
+    r"(?:(present|current|now)|"
+    r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*"
+    r"(\d{4}))",
+    re.IGNORECASE,
+)
+
+YEAR_RANGE_PATTERN = re.compile(
+    r"(\d{4})\s*(?:[-–—]|to)\s*(present|current|now|\d{4})",
+    re.IGNORECASE,
+)
+
+
+def extract_yoe_requirements(jd_text: str) -> List[Dict]:
+    """Extract years-of-experience requirements from job description."""
+    requirements = []
+    for match in YOE_PATTERN.finditer(jd_text):
+        years = int(match.group(1))
+        skill = match.group(2)
+        if skill:
+            skill = skill.strip().rstrip(".,;")
+        requirements.append({"years": years, "skill": skill})
+    return requirements
+
+
+def estimate_resume_yoe(resume_text: str, current_year: int = None) -> Dict:
+    """
+    Estimate total years of experience from resume date ranges.
+    Merges overlapping ranges to avoid double-counting.
+    """
+    if current_year is None:
+        current_year = datetime.now().year
+    ranges = []
+
+    for match in DATE_RANGE_PATTERN.finditer(resume_text):
+        start_year = int(match.group(1))
+        if match.group(2):
+            end_year = current_year
+        else:
+            end_year = int(match.group(3))
+        if 1970 <= start_year <= current_year + 1 and start_year <= end_year:
+            ranges.append((start_year, end_year))
+
+    if not ranges:
+        for match in YEAR_RANGE_PATTERN.finditer(resume_text):
+            start_year = int(match.group(1))
+            end_str = match.group(2).lower()
+            if end_str in ("present", "current", "now"):
+                end_year = current_year
+            else:
+                end_year = int(end_str)
+            if 1970 <= start_year <= current_year + 1 and start_year <= end_year:
+                ranges.append((start_year, end_year))
+
+    if not ranges:
+        return {"total_years": 0, "date_ranges": [], "has_dates": False}
+
+    ranges.sort()
+    merged = [ranges[0]]
+    for start, end in ranges[1:]:
+        if start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+
+    total = sum(end - start for start, end in merged)
+
+    return {
+        "total_years": total,
+        "date_ranges": merged,
+        "has_dates": True,
+    }
+
+
+# ── SECTION-AWARE SCORING ─────────────────────────────────────────────────────
+
+SECTION_MULTIPLIERS = {
+    "skills": 1.5,
+    "experience": 1.3,
+    "summary": 1.2,
+    "projects": 1.1,
+    "education": 1.0,
+    "other": 1.0,
+}
+
+SECTION_HEADERS = {
+    "skills": re.compile(
+        r"(?:^|\n)\s*(?:skills?|technical\s+skills?|core\s+competencies)\s*\n",
+        re.IGNORECASE,
+    ),
+    "experience": re.compile(
+        r"(?:^|\n)\s*(?:experience|work\s+history|employment|professional\s+experience)\s*\n",
+        re.IGNORECASE,
+    ),
+    "summary": re.compile(
+        r"(?:^|\n)\s*(?:summary|objective|professional\s+summary|profile|about\s+me)\s*\n",
+        re.IGNORECASE,
+    ),
+    "projects": re.compile(
+        r"(?:^|\n)\s*(?:projects?|personal\s+projects?|academic\s+projects?)\s*\n",
+        re.IGNORECASE,
+    ),
+    "education": re.compile(
+        r"(?:^|\n)\s*(?:education|university|college|degree|certifications?)\s*\n",
+        re.IGNORECASE,
+    ),
+}
+
+
+def segment_resume(text: str) -> Dict[str, str]:
+    """
+    Split resume text into section blocks.
+    Returns {section_name: section_text}. Text before any header goes into 'other'.
+    """
+    boundaries = []
+    for section_name, pattern in SECTION_HEADERS.items():
+        match = pattern.search(text)
+        if match:
+            boundaries.append((match.start(), section_name))
+
+    if not boundaries:
+        return {"other": text}
+
+    boundaries.sort(key=lambda x: x[0])
+
+    sections = {}
+    if boundaries[0][0] > 0:
+        sections["other"] = text[: boundaries[0][0]]
+
+    for i, (pos, name) in enumerate(boundaries):
+        end = boundaries[i + 1][0] if i + 1 < len(boundaries) else len(text)
+        sections[name] = text[pos:end]
+
+    return sections
+
+
+def compute_match(
+    resume_text: str, jd_text: str, resume_raw: str = "", jd_raw: str = ""
+) -> Dict:
     """
     Core matching algorithm.
-    Returns comprehensive match analysis.
+    Pass resume_raw/jd_raw (original text with newlines) for section detection and YoE.
+    Falls back to resume_text/jd_text if raw versions not provided.
     """
-    resume_lower = resume_text.lower()
-    jd_lower = jd_text.lower()
+    resume_lower = normalize_text(resume_text.lower())
+    jd_lower = normalize_text(jd_text.lower())
+    resume_original = resume_raw if resume_raw else resume_text
+    jd_original = jd_raw if jd_raw else jd_text
 
     # Extract keywords from both
     jd_keywords = extract_keywords(jd_lower)
@@ -448,33 +934,84 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
     matched = jd_flat & resume_flat
     missing = jd_flat - resume_flat
 
-    # Weighted score
+    # Section-aware weighted score (use original text for header detection)
+    resume_sections = segment_resume(resume_original.lower())
     total_weight = 0
     matched_weight = 0
+    keyword_placement = {}
 
     for category, data in SKILL_TAXONOMY.items():
         weight = data["weight"]
         jd_cat_kws = set(jd_keywords.get(category, []))
-        resume_cat_kws = set(resume_keywords.get(category, []))
 
         if jd_cat_kws:
-            cat_matched = jd_cat_kws & resume_cat_kws
             total_weight += len(jd_cat_kws) * weight
-            matched_weight += len(cat_matched) * weight
 
-    # Base score
+            for kw in jd_cat_kws:
+                best_multiplier = 0.0
+                best_section = None
+                for section_name, section_text in resume_sections.items():
+                    if kw in SPECIAL_PATTERNS:
+                        pattern = SPECIAL_PATTERNS[kw]
+                    else:
+                        pattern = r"\b" + re.escape(kw) + r"\b"
+                    if re.search(pattern, section_text):
+                        mult = SECTION_MULTIPLIERS.get(section_name, 1.0)
+                        if mult > best_multiplier:
+                            best_multiplier = mult
+                            best_section = section_name
+
+                if best_multiplier > 0:
+                    matched_weight += weight * min(best_multiplier, 1.5)
+                    if best_section:
+                        keyword_placement.setdefault(best_section, []).append(kw)
+
     if total_weight > 0:
-        weighted_score = (matched_weight / total_weight) * 100
+        weighted_score = min(100, (matched_weight / total_weight) * 100)
     else:
         weighted_score = 0
 
-    # Word frequency overlap bonus
-    jd_freq = get_word_frequencies(jd_lower)
-    resume_freq = get_word_frequencies(resume_lower)
-    common_words = set(jd_freq.keys()) & set(resume_freq.keys())
-    freq_bonus = min(10, len(common_words) * 0.3)
+    if not resume_lower.strip() and not jd_lower.strip():
+        final_score = 0.0
+        text_score = 0.0
+        dynamic_score = 0.0
+    else:
+        keyword_score = weighted_score
+        text_score = bm25_similarity(resume_lower, jd_lower) * 100
 
-    final_score = min(99, weighted_score + freq_bonus)
+        all_taxonomy_kws = {
+            kw for cat in SKILL_TAXONOMY.values() for kw in cat["keywords"]
+        }
+        dynamic_jd_keywords_early = extract_dynamic_keywords(
+            jd_original, all_taxonomy_kws
+        )
+        dynamic_matched_early = [
+            kw
+            for kw in dynamic_jd_keywords_early
+            if re.search(r"\b" + re.escape(kw) + r"\b", resume_lower)
+        ]
+
+        if dynamic_jd_keywords_early:
+            dynamic_score = (
+                len(dynamic_matched_early) / len(dynamic_jd_keywords_early)
+            ) * 100
+        else:
+            dynamic_score = 0.0
+
+        # Combined formula: 70% taxonomy + 20% BM25 + 10% dynamic (or 80/20 if no dynamic)
+        if total_weight > 0:
+            if dynamic_jd_keywords_early:
+                final_score = (
+                    (0.70 * keyword_score)
+                    + (0.20 * text_score)
+                    + (0.10 * dynamic_score)
+                )
+            else:
+                final_score = (0.80 * keyword_score) + (0.20 * text_score)
+        else:
+            final_score = text_score
+
+        final_score = min(100, final_score)
 
     # Categorize matched/missing by category
     matched_by_cat = {}
@@ -490,27 +1027,37 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
         if cat_missing:
             missing_by_cat[category] = cat_missing
 
-    # Extract key phrases from JD not in resume
-    jd_ngrams = set(extract_ngrams(jd_lower))
-    resume_ngrams = set(extract_ngrams(resume_lower))
+    # Extract key phrases from JD not in resume (enhanced: 2-4 grams)
+    jd_ngrams = extract_ngrams_weighted(jd_lower, max_n=4)
+    resume_ngrams = extract_ngrams_weighted(resume_lower, max_n=4)
     missing_phrases = sorted(
         [
             p
-            for p in jd_ngrams - resume_ngrams
-            if not any(sw in p.split() for sw in STOP_WORDS)
+            for p in jd_ngrams
+            if p not in resume_ngrams and not any(sw in p.split() for sw in STOP_WORDS)
         ],
-        key=lambda x: jd_lower.count(x),
+        key=lambda x: (len(x.split()), jd_ngrams[x]),
         reverse=True,
     )[:10]
 
     # Bonus skills in resume not in JD
     bonus_skills = sorted(resume_flat - jd_flat)
 
+    # Dynamic JD keywords (terms not in taxonomy — use original for capitalization detection)
+    all_taxonomy_kws = {kw for cat in SKILL_TAXONOMY.values() for kw in cat["keywords"]}
+    dynamic_jd_keywords = extract_dynamic_keywords(jd_original, all_taxonomy_kws)
+    dynamic_matched = [
+        kw
+        for kw in dynamic_jd_keywords
+        if re.search(r"\b" + re.escape(kw) + r"\b", resume_lower)
+    ]
+    dynamic_missing = [kw for kw in dynamic_jd_keywords if kw not in dynamic_matched]
+
     # Grade
     grade = _score_to_grade(final_score)
 
     # Section analysis
-    sections = _analyze_sections(resume_lower)
+    sections = _analyze_sections(resume_original.lower())
 
     return {
         "score": round(final_score, 1),
@@ -525,6 +1072,18 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
         "sections": sections,
         "jd_keyword_count": len(jd_flat),
         "resume_keyword_count": len(resume_flat),
+        "text_similarity": round(text_score, 1)
+        if resume_lower.strip() or jd_lower.strip()
+        else 0.0,
+        "dynamic_jd_keywords": dynamic_jd_keywords,
+        "dynamic_matched": dynamic_matched,
+        "dynamic_missing": dynamic_missing,
+        "keyword_placement": keyword_placement,
+        "yoe_requirements": extract_yoe_requirements(jd_original),
+        "resume_yoe": estimate_resume_yoe(resume_original),
+        "keyword_density": calculate_keyword_density(
+            resume_lower, resume_flat | matched
+        ),
     }
 
 

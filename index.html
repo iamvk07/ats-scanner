@@ -691,28 +691,28 @@ hr{border:none;border-top:1px dashed var(--muted);margin:2rem auto;}
 const TAXONOMY = {
   languages: {
     weight:10, icon:'💻', label:'Languages',
-    kws:['python','java','javascript','typescript','c++','c#','c','golang','go','rust',
+    kws:['python','java','javascript','typescript','c++','c#','c','go','rust',
          'kotlin','swift','ruby','php','scala','r','matlab','perl','bash','shell',
          'powershell','sql','html','css','sass','less','dart']
   },
   frameworks: {
     weight:9, icon:'⚙️', label:'Frameworks & Libraries',
-    kws:['react','angular','vue','next.js','nextjs','nuxt','svelte','node.js','nodejs',
+    kws:['react','angular','vue','next.js','nuxt','svelte','node.js',
          'express','fastapi','flask','django','spring','spring boot','hibernate','rails',
-         'laravel','asp.net','.net','dotnet','tensorflow','pytorch','keras','pandas','numpy',
-         'scikit-learn','sklearn','matplotlib','junit','pytest','jest','mocha','cypress',
+         'laravel','asp.net','.net','tensorflow','pytorch','keras','pandas','numpy',
+         'scikit-learn','matplotlib','junit','pytest','jest','mocha','cypress',
          'selenium','graphql','rest','grpc','material-ui','tailwind','bootstrap',
          'jquery','redux']
   },
   databases: {
     weight:8, icon:'🗄️', label:'Databases',
-    kws:['postgresql','postgres','mysql','sqlite','mongodb','redis','elasticsearch',
-         'cassandra','dynamodb','oracle','sql server','mssql','mariadb','firebase',
+    kws:['postgresql','mysql','sqlite','mongodb','redis','elasticsearch',
+         'cassandra','dynamodb','oracle','sql server','mariadb','firebase',
          'supabase','nosql','influxdb','neo4j']
   },
   devops_cloud: {
     weight:8, icon:'☁️', label:'DevOps & Cloud',
-    kws:['docker','kubernetes','k8s','aws','azure','gcp','google cloud','terraform',
+    kws:['docker','kubernetes','aws','azure','gcp','terraform',
          'ansible','jenkins','github actions','gitlab ci','circleci','travis','ci/cd',
          'devops','linux','unix','nginx','apache','microservices','serverless',
          'lambda','s3','ec2','rds','cloudformation','helm']
@@ -725,9 +725,9 @@ const TAXONOMY = {
   },
   concepts: {
     weight:7, icon:'🧠', label:'Concepts & Practices',
-    kws:['agile','scrum','kanban','tdd','bdd','oop','object oriented','functional programming',
+    kws:['agile','scrum','kanban','tdd','bdd','oop','functional programming',
          'data structures','algorithms','design patterns','solid','mvc','mvvm','api',
-         'rest api','restful','websocket','authentication','authorization','oauth','jwt',
+         'rest api','websocket','authentication','authorization','oauth','jwt',
          'machine learning','deep learning','nlp','computer vision','data science',
          'big data','etl','data pipeline','unit testing','integration testing','test driven',
          'code review','debugging','performance optimization','security','encryption',
@@ -735,7 +735,7 @@ const TAXONOMY = {
   },
   soft_skills: {
     weight:4, icon:'🤝', label:'Soft Skills',
-    kws:['communication','teamwork','collaboration','leadership','problem solving',
+    kws:['communication','teamwork','collaboration','leadership',
          'problem-solving','analytical','detail oriented','fast learner','self motivated',
          'adaptable','creative','critical thinking','time management','multitasking',
          'initiative','proactive','organized','attention to detail']
@@ -750,11 +750,71 @@ const TAXONOMY = {
 
 const STOP = new Set(['the','a','an','and','or','but','in','on','at','to','for','of',
   'with','by','from','is','are','was','were','be','been','have','has','had','do','does',
-  'did','will','would','could','should','may','might','can','about','this','that','these',
-  'those','we','you','they','all','any','some','not','more','most','other','into','each',
-  'so','than','too','very','just','also','both','only','then','when','where','who',
-  'experience','work','years','year','new','using','use','used','including','skills','strong',
-  'good','knowledge','understanding','role','team','ability','help','must','need','required']);
+  'did','will','would','could','should','may','might','shall','can','need','must',
+  'about','this','that','these','those','we','you','they','he','she','our','your','their',
+  'its','my','all','any','some','no','not','more','most','other','such','into','through',
+  'during','before','after','above','below','between','each','few','so','than','too',
+  'very','just','also','both','only','own','same','then','when','where','who','which',
+  'how','what','why','experience','work','working','years','year','new','using','use',
+  'used','including','include','ability','skills','strong','good','great','excellent',
+  'knowledge','understanding','familiar']);
+
+const SYNONYM_MAP = {
+  'js':'javascript','es6':'javascript','es7':'javascript','ts':'typescript',
+  'golang':'go','c sharp':'c#','csharp':'c#','cplusplus':'c++','py':'python','rb':'ruby',
+  'nextjs':'next.js','nodejs':'node.js','node':'node.js','expressjs':'express',
+  'express.js':'express','aspnet':'asp.net','asp.net core':'asp.net','dotnet':'.net',
+  'dot net':'.net','scikit learn':'scikit-learn','sklearn':'scikit-learn','tf':'tensorflow',
+  'material ui':'material-ui','mui':'material-ui','tailwindcss':'tailwind','tailwind css':'tailwind',
+  'postgres':'postgresql','pg':'postgresql','mongo':'mongodb','elastic':'elasticsearch',
+  'dynamo':'dynamodb','ms sql':'sql server','mssql':'sql server','maria':'mariadb',
+  'k8s':'kubernetes','kube':'kubernetes','amazon web services':'aws',
+  'google cloud platform':'gcp','google cloud':'gcp','microsoft azure':'azure',
+  'gh actions':'github actions','github ci':'github actions','gitlab cicd':'gitlab ci',
+  'ci cd':'ci/cd','cicd':'ci/cd','continuous integration':'ci/cd','continuous deployment':'ci/cd',
+  'visual studio code':'vs code','vscode':'vs code',
+  'object oriented programming':'oop','object-oriented':'oop','object oriented':'oop',
+  'test driven development':'tdd','test-driven development':'tdd',
+  'behavior driven development':'bdd','behavior-driven development':'bdd',
+  'representational state transfer':'rest','restful api':'rest api','restful':'rest api',
+  'json web token':'jwt','json web tokens':'jwt','natural language processing':'nlp',
+  'ml':'machine learning','dl':'deep learning','cv':'computer vision','ds':'data science',
+  'problem solving':'problem-solving','detail-oriented':'detail oriented','self-motivated':'self motivated'
+};
+const SORTED_SYNONYMS = Object.entries(SYNONYM_MAP).sort((a,b)=>b[0].length-a[0].length);
+function normalizeText(text){
+  let r=text;
+  for(const [alias,canonical] of SORTED_SYNONYMS){
+    const pat=new RegExp('\\b'+alias.replace(/[+.]/g,'\\$&').replace(/\//g,'\\/')+'\\b','gi');
+    r=r.replace(pat,canonical);
+  }
+  return r;
+}
+
+const SECTION_MULTIPLIERS = {skills:1.5,experience:1.3,summary:1.2,projects:1.1,education:1.0,other:1.0};
+const SECTION_HEADERS_RE = {
+  skills:/(?:^|\n)\s*(?:skills?|technical\s+skills?|core\s+competencies)\s*\n/i,
+  experience:/(?:^|\n)\s*(?:experience|work\s+history|employment|professional\s+experience)\s*\n/i,
+  summary:/(?:^|\n)\s*(?:summary|objective|professional\s+summary|profile|about\s+me)\s*\n/i,
+  projects:/(?:^|\n)\s*(?:projects?|personal\s+projects?|academic\s+projects?)\s*\n/i,
+  education:/(?:^|\n)\s*(?:education|university|college|degree|certifications?)\s*\n/i,
+};
+function segmentResume(text){
+  const bounds=[];
+  for(const [name,pat] of Object.entries(SECTION_HEADERS_RE)){
+    const m=pat.exec(text);
+    if(m) bounds.push([m.index,name]);
+  }
+  if(!bounds.length) return {other:text};
+  bounds.sort((a,b)=>a[0]-b[0]);
+  const secs={};
+  if(bounds[0][0]>0) secs.other=text.slice(0,bounds[0][0]);
+  for(let i=0;i<bounds.length;i++){
+    const end=i+1<bounds.length?bounds[i+1][0]:text.length;
+    secs[bounds[i][1]]=text.slice(bounds[i][0],end);
+  }
+  return secs;
+}
 
 const SECTION_ICONS = {contact:'📧',education:'🎓',experience:'💼',projects:'🚀',skills:'⚡',summary:'📝'};
 
@@ -788,26 +848,149 @@ function getNgrams(text, n=2){
   return ng;
 }
 
+function bm25Score(queryTerms, docFreq, docLength, avgDocLength, corpusSize, docContaining, k1=1.5, b=0.75){
+  let score=0;
+  for(const term of queryTerms){
+    const tf=docFreq.get(term)||0;
+    const nContaining=docContaining.get(term)||0;
+    const idf=Math.log((corpusSize-nContaining+0.5)/(nContaining+0.5)+1);
+    if(avgDocLength>0){
+      const num=tf*(k1+1);
+      const den=tf+k1*(1-b+b*(docLength/avgDocLength));
+      score+=idf*(num/den);
+    }
+  }
+  return score;
+}
+
+function bm25Similarity(textA, textB){
+  const wA=getWords(textA), wB=getWords(textB);
+  if(!wA.length&&!wB.length) return 1;
+  if(!wA.length||!wB.length) return 0;
+  const freqA=new Map(), freqB=new Map();
+  wA.forEach(w=>freqA.set(w,(freqA.get(w)||0)+1));
+  wB.forEach(w=>freqB.set(w,(freqB.get(w)||0)+1));
+  const allW=new Set([...freqA.keys(),...freqB.keys()]);
+  const lenA=wA.length, lenB=wB.length, avgLen=(lenA+lenB)/2;
+  const docContaining=new Map();
+  for(const w of allW){
+    let c=0; if(freqA.has(w))c++; if(freqB.has(w))c++;
+    docContaining.set(w,c);
+  }
+  const qTerms=[...freqB.keys()];
+  const actual=bm25Score(qTerms,freqA,lenA,avgLen,2,docContaining);
+  const maxS=bm25Score(qTerms,freqB,lenB,avgLen,2,docContaining);
+  if(maxS<=0) return 0;
+  return Math.min(1,actual/maxS);
+}
+
+function getNgramsWeighted(text, maxN=4){
+  const w=getWords(text), counts=new Map();
+  for(let n=2;n<=maxN;n++){
+    for(let i=0;i<w.length-n+1;i++){
+      const ng=w.slice(i,i+n).join(' ');
+      counts.set(ng,(counts.get(ng)||0)+1);
+    }
+  }
+  return counts;
+}
+
+function jaccardSimilarity(textA, textB){
+  const wordsA = new Set(getWords(textA));
+  const wordsB = new Set(getWords(textB));
+  if(!wordsA.size && !wordsB.size) return 1;
+  if(!wordsA.size || !wordsB.size) return 0;
+  const intersection = [...wordsA].filter(w => wordsB.has(w)).length;
+  const union = new Set([...wordsA, ...wordsB]).size;
+  return intersection / union;
+}
+
+const REQUIREMENT_SIGNALS = /(?:experience\s+(?:with|in|using)|proficien(?:t|cy)\s+(?:with|in)|knowledge\s+of|familiar(?:ity)?\s+with|expertise\s+(?:in|with)|(?:must|should)\s+(?:have|know)|required|preferred|nice\s+to\s+have|skills?\s*:)\s+(.+?)(?:\.|,|;|\n|$)/gi;
+const BULLET_PATTERN = /(?:^|\n)\s*(?:[-*+]|\d+[.)]\s)\s*(.+?)(?:\n|$)/g;
+
+function extractDynamicKeywords(jdText, taxonomyKws){
+  const candidates = new Set();
+  let m;
+  REQUIREMENT_SIGNALS.lastIndex=0;
+  while((m=REQUIREMENT_SIGNALS.exec(jdText))!==null){
+    const phrase=m[1].trim();
+    for(const term of phrase.split(/,\s*|\s+and\s+|\s+or\s+/)){
+      const t=term.trim().toLowerCase().replace(/[^\w\s+#.\-]/g,'').trim();
+      if(t.length>2 && t.split(/\s+/).length<=3 && !STOP.has(t) && !taxonomyKws.has(t)) candidates.add(t);
+    }
+  }
+  const capPat=/\b([A-Z][a-zA-Z0-9+#.]*(?:\s+[A-Z][a-zA-Z0-9]*)*)\b/g;
+  while((m=capPat.exec(jdText))!==null){
+    const t=m[1].trim(), tl=t.toLowerCase(), pos=m.index;
+    const isSentStart=pos===0||'.!?\n'.includes(jdText[pos-1])||(pos>=2&&jdText.slice(pos-2,pos)==='. ');
+    if(tl.length>2 && !STOP.has(tl) && !taxonomyKws.has(tl) && !isSentStart) candidates.add(tl);
+  }
+  BULLET_PATTERN.lastIndex=0;
+  while((m=BULLET_PATTERN.exec(jdText))!==null){
+    const line=m[1].trim();
+    for(const w of line.split(/,\s*|\s+and\s+/)){
+      const t=w.trim().toLowerCase().replace(/[^\w\s+#.\-]/g,'').trim();
+      if(t.length>2 && !STOP.has(t) && !taxonomyKws.has(t) && t.split(/\s+/).length<=3) candidates.add(t);
+    }
+  }
+  return [...candidates].sort();
+}
+
 function analyze(resumeText, jdText){
-  const rc = clean(resumeText), jc = clean(jdText);
+  const rc = normalizeText(clean(resumeText)), jc = normalizeText(clean(jdText));
+  const resumeRaw = resumeText.toLowerCase();
   const rKws = extractKws(rc), jKws = extractKws(jc);
   const rFlat = new Set(Object.values(rKws).flat());
   const jFlat = new Set(Object.values(jKws).flat());
   const matched = new Set([...jFlat].filter(k=>rFlat.has(k)));
   const missing = new Set([...jFlat].filter(k=>!rFlat.has(k)));
 
-  // Weighted score
+  const allTaxKws=new Set(Object.values(TAXONOMY).flatMap(d=>d.kws));
+  const dynamicJdKws=extractDynamicKeywords(jdText, allTaxKws);
+  const dynamicMatched=dynamicJdKws.filter(k=>new RegExp('\\b'+k.replace(/[+.]/g,'\\$&')+'\\b','i').test(rc));
+  const dynamicMissing=dynamicJdKws.filter(k=>!dynamicMatched.includes(k));
+
+  const resumeSections=segmentResume(resumeRaw);
   let totalW=0, matchW=0;
+  const kwPlacement={};
   for(const [cat,data] of Object.entries(TAXONOMY)){
-    const jCat = new Set(jKws[cat]||[]), rCat = new Set(rKws[cat]||[]);
+    const jCat = new Set(jKws[cat]||[]);
     if(jCat.size){
       totalW += jCat.size * data.weight;
-      matchW += [...jCat].filter(k=>rCat.has(k)).length * data.weight;
+      for(const kw of jCat){
+        let bestMult=0, bestSec=null;
+        for(const [secName,secText] of Object.entries(resumeSections)){
+          const pat=SPECIAL_KW_PATTERNS[kw]||new RegExp('\\b'+kw.replace(/[+.]/g,'\\$&').replace(/\//g,'\\/')+'\\b','i');
+          if(pat.test(secText)){
+            const mult=SECTION_MULTIPLIERS[secName]||1.0;
+            if(mult>bestMult){bestMult=mult;bestSec=secName;}
+          }
+        }
+        if(bestMult>0){
+          matchW+=data.weight*Math.min(bestMult,1.5);
+          if(bestSec){if(!kwPlacement[bestSec])kwPlacement[bestSec]=[];kwPlacement[bestSec].push(kw);}
+        }
+      }
     }
   }
-  let score = totalW>0?(matchW/totalW)*100:0;
-  const jWords = new Set(getWords(jc)), rWords = new Set(getWords(rc));
-  score = Math.min(99, score + Math.min(10,[...jWords].filter(w=>rWords.has(w)).length*0.3));
+  let score;
+  if(!rc.trim() && !jc.trim()){
+    score = 0;
+  } else {
+    const keywordScore = totalW>0?Math.min(100,(matchW/totalW)*100):0;
+    const textScore = bm25Similarity(rc, jc) * 100;
+    const dynScore = dynamicJdKws.length ? (dynamicMatched.length/dynamicJdKws.length)*100 : 0;
+    if(totalW > 0){
+      if(dynamicJdKws.length){
+        score = (0.70 * keywordScore) + (0.20 * textScore) + (0.10 * dynScore);
+      } else {
+        score = (0.80 * keywordScore) + (0.20 * textScore);
+      }
+    } else {
+      score = textScore;
+    }
+    score = Math.min(100, score);
+  }
 
   // By category
   const matchedByCat={}, missingByCat={};
@@ -819,22 +1002,25 @@ function analyze(resumeText, jdText){
     if(x.length) missingByCat[cat]=x;
   }
 
-  // Missing phrases
-  const jNg=new Set(getNgrams(jc)), rNg=new Set(getNgrams(rc));
-  const missingPhrases=[...jNg]
+  const jNg=getNgramsWeighted(jc,4), rNg=getNgramsWeighted(rc,4);
+  const missingPhrases=[...jNg.keys()]
     .filter(p=>!rNg.has(p)&&!p.split(' ').some(w=>STOP.has(w)))
-    .sort((a,b)=>(jc.match(new RegExp(b,'g'))||[]).length-(jc.match(new RegExp(a,'g'))||[]).length)
-    .slice(0,8);
+    .sort((a,b)=>{
+      const la=a.split(' ').length, lb=b.split(' ').length;
+      if(lb!==la) return lb-la;
+      return (jNg.get(b)||0)-(jNg.get(a)||0);
+    })
+    .slice(0,10);
 
-  const bonusSkills=[...rFlat].filter(k=>!jFlat.has(k)).sort().slice(0,18);
+  const bonusSkills=[...rFlat].filter(k=>!jFlat.has(k)).sort().slice(0,15);
 
   const sections={
-    contact:    /email|phone|@|\d{3}/.test(rc),
-    education:  /(?:^|\n)\s*(?:education|university|college|degree|bachelor|master)/m.test(rc),
-    experience: /(?:^|\n)\s*(?:experience|work\s+history|employment|professional\s+experience)/m.test(rc),
-    projects:   /(?:^|\n)\s*(?:projects?|personal\s+projects?|academic\s+projects?)/m.test(rc),
-    skills:     /(?:^|\n)\s*(?:skills?|technical\s+skills?|core\s+competencies)/m.test(rc),
-    summary:    /(?:^|\n)\s*(?:summary|objective|professional\s+summary|profile|about\s+me)/m.test(rc),
+    contact:    /email|phone|@|\d{3}/.test(resumeRaw),
+    education:  /(?:^|\n)\s*(?:education|university|college|degree|bachelor|master)/m.test(resumeRaw),
+    experience: /(?:^|\n)\s*(?:experience|work\s+history|employment|professional\s+experience)/m.test(resumeRaw),
+    projects:   /(?:^|\n)\s*(?:projects?|personal\s+projects?|academic\s+projects?)/m.test(resumeRaw),
+    skills:     /(?:^|\n)\s*(?:skills?|technical\s+skills?|core\s+competencies)/m.test(resumeRaw),
+    summary:    /(?:^|\n)\s*(?:summary|objective|professional\s+summary|profile|about\s+me)/m.test(resumeRaw),
   };
 
   const grade = score>=85?'A':score>=75?'B':score>=60?'C':score>=45?'D':'F';
@@ -844,7 +1030,9 @@ function analyze(resumeText, jdText){
     matched:matched.size, missing:missing.size,
     total:jFlat.size,
     matchedByCat, missingByCat,
-    missingPhrases, bonusSkills, sections
+    missingPhrases, bonusSkills, sections,
+    dynamicJdKws, dynamicMatched, dynamicMissing,
+    kwPlacement
   };
 }
 
@@ -877,17 +1065,28 @@ function renderKws(containerId, byCat, tagClass, emptyMsg){
 
 function generateRecs(r){
   const recs=[];
-  const {score,missingByCat,sections,bonusSkills}=r;
-  if(score<50) recs.push('<strong>Critical:</strong> Under 50% match. Heavily tailor this resume before applying — add relevant keywords throughout.');
-  if(missingByCat.languages?.length) recs.push(`<strong>Languages:</strong> The JD mentions <em>${missingByCat.languages.slice(0,3).join(', ')}</em>. If you have any experience, add them explicitly to your skills section.`);
-  if(missingByCat.frameworks?.length) recs.push(`<strong>Frameworks:</strong> <em>${missingByCat.frameworks.slice(0,3).join(', ')}</em> appear in the JD. Even basic familiarity is worth mentioning.`);
-  if(missingByCat.devops_cloud?.length) recs.push('<strong>DevOps/Cloud:</strong> This role emphasizes cloud skills. Highlight any Docker, CI/CD, or cloud platform experience from your projects.');
-  if(!sections.summary) recs.push('<strong>Add a Summary:</strong> A professional summary at the top lets you front-load keywords and immediately show your fit.');
-  if(!sections.projects) recs.push('<strong>Projects Section Missing:</strong> No projects detected. Adding projects with relevant tech stacks significantly boosts ATS scores.');
-  if(missingByCat.soft_skills?.length) recs.push(`<strong>Soft Skills:</strong> The JD mentions <em>${missingByCat.soft_skills.slice(0,3).join(', ')}</em>. Weave these naturally into your bullet points.`);
-  if(bonusSkills.length>5) recs.push(`<strong>Bonus Skills:</strong> You have ${bonusSkills.length} skills not in this JD. Great overall — just make sure the required ones are prominent.`);
-  if(score>=75) recs.push('<strong>Looking Good:</strong> Strong match! Use your cover letter to address any remaining gaps and emphasize measurable impact.');
-  if(!recs.length) recs.push('<strong>Great Match:</strong> Your resume aligns well. Focus on adding measurable outcomes to your bullet points.');
+  const {score,missingByCat,sections,bonusSkills,dynamicMissing,kwPlacement}=r;
+  if(score<50) recs.push(`<strong>Critical:</strong> Your resume matches only ${score.toFixed(0)}% of this JD. Focus on adding the top missing keywords from each category.`);
+  for(const cat of ['languages','frameworks','databases','devops_cloud']){
+    if(missingByCat[cat]?.length){
+      const kws=missingByCat[cat].slice(0,3).join(', ');
+      const name=TAXONOMY[cat]?.label||cat;
+      recs.push(`<strong>${name}:</strong> Missing <em>${kws}</em>. ${!sections.skills?'Add to Skills AND Experience for max ATS weight.':'Add these to your Skills section explicitly.'}`);
+    }
+  }
+  if(!sections.summary) recs.push('<strong>Add a Summary:</strong> A professional summary lets you front-load 4-6 core keywords. ATS systems weight summary keywords highly.');
+  if(!sections.skills) recs.push('<strong>Add a Skills Section:</strong> A dedicated Skills section gets a 1.5x weight multiplier in most ATS systems.');
+  if(!sections.projects&&score<75) recs.push('<strong>Add Projects:</strong> A Projects section lets you demonstrate skills with context. "Built X using Python and React" scores higher than just listing them.');
+  if(kwPlacement){
+    const skillsKws=new Set(kwPlacement.skills||[]);
+    const expKws=new Set(kwPlacement.experience||[]);
+    const onlySkills=[...skillsKws].filter(k=>!expKws.has(k));
+    if(onlySkills.length>2) recs.push(`<strong>Prove Your Skills:</strong> <em>${onlySkills.slice(0,3).join(', ')}</em> appear only in Skills. Mention them in Experience bullets too — ATS rewards the "Claim + Proof" pattern.`);
+  }
+  if(dynamicMissing?.length>2) recs.push(`<strong>JD-Specific Terms:</strong> The JD mentions <em>${dynamicMissing.slice(0,3).join(', ')}</em> which aren't standard keywords. If you have experience, add them.`);
+  if(score>=85) recs.push('<strong>Excellent Match:</strong> Strong alignment! Focus your cover letter on the 1-2 remaining gaps.');
+  else if(score>=75) recs.push('<strong>Good Match:</strong> Solid foundation. Address the missing keywords above for top-tier ATS scoring.');
+  if(!recs.length) recs.push('<strong>Well Optimized:</strong> Your resume is well-aligned. Focus on quantifying achievements in your bullet points.');
   return recs;
 }
 
@@ -976,7 +1175,6 @@ function runScan(){
       phEl.innerHTML='<div class="no-items">No key phrases missing — great match!</div>';
     }
 
-    // Recs
     const recs=generateRecs(result);
     document.getElementById('recsBody').innerHTML=recs.map((r,i)=>`
       <div class="rec-item" style="animation-delay:${i*.07}s">
@@ -1020,9 +1218,10 @@ function stripLatex(text){
         text = next;
     }
     text = text.replace(/\\href\{[^}]*\}\{([^}]*)\}/g, '$1');
+    text = text.replace(/\\(?:cvitem|cventry|cvlistitem|cvdoubleitem|cvcolumn|cvskill|cvitemwithcomment|name|address|email|phone|social|extrainfo)(?:\[[^\]]*\])?/g, ' ');
     text = text.replace(/\\[a-zA-Z]+\*?(?:\[[^\]]*\])?(?:\{[^}]*\})*/g, '');
     text = text.replace(/\\[\\&%$#_{}~^]/g, ' ');
-    text = text.replace(/[{}]/g, '');
+    text = text.replace(/[{}]/g, ' ');
     text = text.replace(/[ \t]+/g, ' ');
     text = text.replace(/\n\s*\n+/g, '\n');
     return text.trim();
