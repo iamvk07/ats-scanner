@@ -397,7 +397,7 @@ def print_report(
             color = C.BRIGHT_RED
             msg = "Too high — ATS may flag as keyword stuffing"
         p(f"  {label('Density:')}  {col(f'{pct}%', color)}  ({msg})")
-        p(f"  {label('Optimal range:')}  {col('2-3%', C.DIM)}")
+        p(f"  {label('Optimal range:')}  {col('3-8%', C.DIM)}")
         if density["stuffed_keywords"]:
             p()
             p(col("  Over-repeated keywords (>4 times):", C.BRIGHT_YELLOW))
@@ -516,7 +516,7 @@ def _generate_recommendations(result: Dict) -> list:
     if density.get("status") == "danger":
         recs.append(
             col("Keyword Stuffing Alert: ", C.BRIGHT_RED, C.BOLD)
-            + f"Your keyword density is {density['density_pct']}% (optimal: 2-3%). "
+            + f"Your keyword density is {density['density_pct']}% (optimal: 3-8%). "
             "Modern ATS systems penalize over-repetition. Remove duplicate mentions."
         )
     elif density.get("stuffed_keywords"):

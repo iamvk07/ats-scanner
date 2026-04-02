@@ -515,12 +515,21 @@ REQUIREMENT_SIGNALS = re.compile(
 BULLET_PATTERN = re.compile(r"(?:^|\n)\s*(?:[-*+]|\d+[.)]\s)\s*(.+?)(?:\n|$)")
 
 
+def _clean_jd_markup(text: str) -> str:
+    text = re.sub(r"`([^`]*)`", r"\1", text)
+    text = re.sub(r"\*{1,3}([^*]+)\*{1,3}", r"\1", text)
+    text = re.sub(r"#{1,6}\s*", "", text)
+    text = re.sub(r"\[\d+(?:\s*,\s*\d+)*\]", "", text)
+    return text
+
+
 def extract_dynamic_keywords(jd_text: str, taxonomy_keywords: Set[str]) -> List[str]:
     """
     Extract potential skill keywords from JD text that are NOT in the
     static taxonomy. Uses requirement contexts, capitalized terms, and
     bullet points as signals.
     """
+    jd_text = _clean_jd_markup(jd_text)
     candidates = set()
 
     # 1. Terms from requirement signal contexts
@@ -528,7 +537,7 @@ def extract_dynamic_keywords(jd_text: str, taxonomy_keywords: Set[str]) -> List[
         phrase = match.group(1).strip()
         for term in re.split(r",\s*|\s+and\s+|\s+or\s+", phrase):
             term = term.strip().lower()
-            term = re.sub(r"[^\w\s\+#\.\-]", "", term).strip()
+            term = re.sub(r"[^\w\s\+#\./\-]", "", term).strip()
             if (
                 len(term) > 2
                 and len(term.split()) <= 3
@@ -561,7 +570,7 @@ def extract_dynamic_keywords(jd_text: str, taxonomy_keywords: Set[str]) -> List[
         line = match.group(1).strip()
         words = [w.strip().lower() for w in re.split(r",\s*|\s+and\s+", line)]
         for w in words:
-            w = re.sub(r"[^\w\s\+#\.\-]", "", w).strip()
+            w = re.sub(r"[^\w\s\+#\./\-]", "", w).strip()
             if (
                 len(w) > 2
                 and w not in STOP_WORDS
@@ -756,8 +765,8 @@ def calculate_keyword_density(text: str, keywords: Set[str]) -> Dict:
         "density_pct": round(density, 1),
         "stuffed_keywords": stuffed,
         "status": "good"
-        if density <= 3.0
-        else ("warning" if density <= 5.0 else "danger"),
+        if density <= 8.0
+        else ("warning" if density <= 15.0 else "danger"),
     }
 
 
@@ -773,7 +782,7 @@ YOE_PATTERN = re.compile(
 
 DATE_RANGE_PATTERN = re.compile(
     r"(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*"
-    r"(\d{4}))\s*(?:[-–—]|to)\s*"
+    r"(\d{4}))\s*(?:[-–—]+|to)\s*"
     r"(?:(present|current|now)|"
     r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*"
     r"(\d{4}))",
@@ -781,7 +790,7 @@ DATE_RANGE_PATTERN = re.compile(
 )
 
 YEAR_RANGE_PATTERN = re.compile(
-    r"(\d{4})\s*(?:[-–—]|to)\s*(present|current|now|\d{4})",
+    r"(\d{4})\s*(?:[-–—]+|to)\s*(present|current|now|\d{4})",
     re.IGNORECASE,
 )
 
@@ -798,23 +807,55 @@ def extract_yoe_requirements(jd_text: str) -> List[Dict]:
     return requirements
 
 
+MONTH_TO_NUM = {
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
+}
+
+MONTH_DATE_RANGE = re.compile(
+    r"((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)\.*\s*"
+    r"(\d{4})\s*(?:[-–—]+|to)\s*"
+    r"(?:(present|current|now)|"
+    r"((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)\.*\s*"
+    r"(\d{4}))",
+    re.IGNORECASE,
+)
+
+
 def estimate_resume_yoe(resume_text: str, current_year: int = None) -> Dict:
     """
     Estimate total years of experience from resume date ranges.
     Merges overlapping ranges to avoid double-counting.
+    Uses month-level precision when available, falls back to year-only.
     """
     if current_year is None:
         current_year = datetime.now().year
+    current_month = datetime.now().month
     ranges = []
 
-    for match in DATE_RANGE_PATTERN.finditer(resume_text):
-        start_year = int(match.group(1))
-        if match.group(2):
-            end_year = current_year
+    for match in MONTH_DATE_RANGE.finditer(resume_text):
+        start_month_str = match.group(1)[:3].lower()
+        start_year = int(match.group(2))
+        start_frac = start_year + (MONTH_TO_NUM.get(start_month_str, 1) - 1) / 12
+
+        if match.group(3):
+            end_frac = current_year + (current_month - 1) / 12
         else:
-            end_year = int(match.group(3))
-        if 1970 <= start_year <= current_year + 1 and start_year <= end_year:
-            ranges.append((start_year, end_year))
+            end_month_str = match.group(4)[:3].lower()
+            end_year = int(match.group(5))
+            end_frac = end_year + MONTH_TO_NUM.get(end_month_str, 12) / 12
+        if 1970 <= start_year <= current_year + 1 and start_frac <= end_frac:
+            ranges.append((start_frac, end_frac))
 
     if not ranges:
         for match in YEAR_RANGE_PATTERN.finditer(resume_text):
@@ -825,7 +866,7 @@ def estimate_resume_yoe(resume_text: str, current_year: int = None) -> Dict:
             else:
                 end_year = int(end_str)
             if 1970 <= start_year <= current_year + 1 and start_year <= end_year:
-                ranges.append((start_year, end_year))
+                ranges.append((float(start_year), float(end_year)))
 
     if not ranges:
         return {"total_years": 0, "date_ranges": [], "has_dates": False}
@@ -838,11 +879,12 @@ def estimate_resume_yoe(resume_text: str, current_year: int = None) -> Dict:
         else:
             merged.append((start, end))
 
-    total = sum(end - start for start, end in merged)
+    total_frac = sum(end - start for start, end in merged)
+    total = round(total_frac)
 
     return {
         "total_years": total,
-        "date_ranges": merged,
+        "date_ranges": [(round(s), round(e)) for s, e in merged],
         "has_dates": True,
     }
 
@@ -988,7 +1030,7 @@ def compute_match(
         dynamic_matched_early = [
             kw
             for kw in dynamic_jd_keywords_early
-            if re.search(r"\b" + re.escape(kw) + r"\b", resume_lower)
+            if re.search(r"\b" + re.escape(normalize_text(kw)) + r"\b", resume_lower)
         ]
 
         if dynamic_jd_keywords_early:
@@ -1049,7 +1091,7 @@ def compute_match(
     dynamic_matched = [
         kw
         for kw in dynamic_jd_keywords
-        if re.search(r"\b" + re.escape(kw) + r"\b", resume_lower)
+        if re.search(r"\b" + re.escape(normalize_text(kw)) + r"\b", resume_lower)
     ]
     dynamic_missing = [kw for kw in dynamic_jd_keywords if kw not in dynamic_matched]
 
