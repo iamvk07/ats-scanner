@@ -5,9 +5,7 @@ Supports: .txt files, .pdf files (basic), .tex files (LaTeX), .docx files (Word)
 
 import os
 import re
-import struct
 import zipfile
-import zlib
 from xml.etree import ElementTree
 
 

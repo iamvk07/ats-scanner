@@ -908,14 +908,23 @@ function jaccardSimilarity(textA, textB){
 const REQUIREMENT_SIGNALS = /(?:experience\s+(?:with|in|using)|proficien(?:t|cy)\s+(?:with|in)|knowledge\s+of|familiar(?:ity)?\s+with|expertise\s+(?:in|with)|(?:must|should)\s+(?:have|know)|required|preferred|nice\s+to\s+have|skills?\s*:)\s+(.+?)(?:\.|,|;|\n|$)/gi;
 const BULLET_PATTERN = /(?:^|\n)\s*(?:[-*+]|\d+[.)]\s)\s*(.+?)(?:\n|$)/g;
 
+function cleanJdMarkup(text){
+  text=text.replace(/`([^`]*)`/g,'$1');
+  text=text.replace(/\*{1,3}([^*]+)\*{1,3}/g,'$1');
+  text=text.replace(/#{1,6}\s*/g,'');
+  text=text.replace(/\[\d+(?:\s*,\s*\d+)*\]/g,'');
+  return text;
+}
+
 function extractDynamicKeywords(jdText, taxonomyKws){
+  jdText=cleanJdMarkup(jdText);
   const candidates = new Set();
   let m;
   REQUIREMENT_SIGNALS.lastIndex=0;
   while((m=REQUIREMENT_SIGNALS.exec(jdText))!==null){
     const phrase=m[1].trim();
     for(const term of phrase.split(/,\s*|\s+and\s+|\s+or\s+/)){
-      const t=term.trim().toLowerCase().replace(/[^\w\s+#.\-]/g,'').trim();
+      const t=term.trim().toLowerCase().replace(/[^\w\s+#./\-]/g,'').trim();
       if(t.length>2 && t.split(/\s+/).length<=3 && !STOP.has(t) && !taxonomyKws.has(t)) candidates.add(t);
     }
   }
@@ -929,7 +938,7 @@ function extractDynamicKeywords(jdText, taxonomyKws){
   while((m=BULLET_PATTERN.exec(jdText))!==null){
     const line=m[1].trim();
     for(const w of line.split(/,\s*|\s+and\s+/)){
-      const t=w.trim().toLowerCase().replace(/[^\w\s+#.\-]/g,'').trim();
+      const t=w.trim().toLowerCase().replace(/[^\w\s+#./\-]/g,'').trim();
       if(t.length>2 && !STOP.has(t) && !taxonomyKws.has(t) && t.split(/\s+/).length<=3) candidates.add(t);
     }
   }
@@ -947,7 +956,7 @@ function analyze(resumeText, jdText){
 
   const allTaxKws=new Set(Object.values(TAXONOMY).flatMap(d=>d.kws));
   const dynamicJdKws=extractDynamicKeywords(jdText, allTaxKws);
-  const dynamicMatched=dynamicJdKws.filter(k=>new RegExp('\\b'+k.replace(/[+.]/g,'\\$&')+'\\b','i').test(rc));
+  const dynamicMatched=dynamicJdKws.filter(k=>new RegExp('\\b'+normalizeText(k).replace(/[+.]/g,'\\$&')+'\\b','i').test(rc));
   const dynamicMissing=dynamicJdKws.filter(k=>!dynamicMatched.includes(k));
 
   const resumeSections=segmentResume(resumeRaw);
