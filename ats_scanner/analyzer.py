@@ -531,6 +531,7 @@ def extract_dynamic_keywords(jd_text: str, taxonomy_keywords: Set[str]) -> List[
             term = re.sub(r"[^\w\s\+#\.\-]", "", term).strip()
             if (
                 len(term) > 2
+                and len(term.split()) <= 3
                 and term not in STOP_WORDS
                 and term not in taxonomy_keywords
             ):
@@ -908,13 +909,18 @@ def segment_resume(text: str) -> Dict[str, str]:
     return sections
 
 
-def compute_match(resume_text: str, jd_text: str) -> Dict:
+def compute_match(
+    resume_text: str, jd_text: str, resume_raw: str = "", jd_raw: str = ""
+) -> Dict:
     """
     Core matching algorithm.
-    Returns comprehensive match analysis.
+    Pass resume_raw/jd_raw (original text with newlines) for section detection and YoE.
+    Falls back to resume_text/jd_text if raw versions not provided.
     """
     resume_lower = normalize_text(resume_text.lower())
     jd_lower = normalize_text(jd_text.lower())
+    resume_original = resume_raw if resume_raw else resume_text
+    jd_original = jd_raw if jd_raw else jd_text
 
     # Extract keywords from both
     jd_keywords = extract_keywords(jd_lower)
@@ -928,8 +934,8 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
     matched = jd_flat & resume_flat
     missing = jd_flat - resume_flat
 
-    # Section-aware weighted score
-    resume_sections = segment_resume(resume_lower)
+    # Section-aware weighted score (use original text for header detection)
+    resume_sections = segment_resume(resume_original.lower())
     total_weight = 0
     matched_weight = 0
     keyword_placement = {}
@@ -976,7 +982,9 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
         all_taxonomy_kws = {
             kw for cat in SKILL_TAXONOMY.values() for kw in cat["keywords"]
         }
-        dynamic_jd_keywords_early = extract_dynamic_keywords(jd_text, all_taxonomy_kws)
+        dynamic_jd_keywords_early = extract_dynamic_keywords(
+            jd_original, all_taxonomy_kws
+        )
         dynamic_matched_early = [
             kw
             for kw in dynamic_jd_keywords_early
@@ -1035,9 +1043,9 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
     # Bonus skills in resume not in JD
     bonus_skills = sorted(resume_flat - jd_flat)
 
-    # Dynamic JD keywords (terms not in taxonomy)
+    # Dynamic JD keywords (terms not in taxonomy — use original for capitalization detection)
     all_taxonomy_kws = {kw for cat in SKILL_TAXONOMY.values() for kw in cat["keywords"]}
-    dynamic_jd_keywords = extract_dynamic_keywords(jd_text, all_taxonomy_kws)
+    dynamic_jd_keywords = extract_dynamic_keywords(jd_original, all_taxonomy_kws)
     dynamic_matched = [
         kw
         for kw in dynamic_jd_keywords
@@ -1049,7 +1057,7 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
     grade = _score_to_grade(final_score)
 
     # Section analysis
-    sections = _analyze_sections(resume_lower)
+    sections = _analyze_sections(resume_original.lower())
 
     return {
         "score": round(final_score, 1),
@@ -1071,8 +1079,8 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
         "dynamic_matched": dynamic_matched,
         "dynamic_missing": dynamic_missing,
         "keyword_placement": keyword_placement,
-        "yoe_requirements": extract_yoe_requirements(jd_text),
-        "resume_yoe": estimate_resume_yoe(resume_text),
+        "yoe_requirements": extract_yoe_requirements(jd_original),
+        "resume_yoe": estimate_resume_yoe(resume_original),
         "keyword_density": calculate_keyword_density(
             resume_lower, resume_flat | matched
         ),

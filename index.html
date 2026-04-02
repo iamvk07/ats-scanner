@@ -916,7 +916,7 @@ function extractDynamicKeywords(jdText, taxonomyKws){
     const phrase=m[1].trim();
     for(const term of phrase.split(/,\s*|\s+and\s+|\s+or\s+/)){
       const t=term.trim().toLowerCase().replace(/[^\w\s+#.\-]/g,'').trim();
-      if(t.length>2 && !STOP.has(t) && !taxonomyKws.has(t)) candidates.add(t);
+      if(t.length>2 && t.split(/\s+/).length<=3 && !STOP.has(t) && !taxonomyKws.has(t)) candidates.add(t);
     }
   }
   const capPat=/\b([A-Z][a-zA-Z0-9+#.]*(?:\s+[A-Z][a-zA-Z0-9]*)*)\b/g;

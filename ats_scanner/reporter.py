@@ -341,14 +341,22 @@ def print_report(
         p(section_line())
         p()
         if resume_yoe.get("has_dates"):
-            p(f"  {label('Estimated YoE:')}  {col(f'~{resume_yoe[\"total_years\"]} years', C.BRIGHT_WHITE)}")
+            total_yrs = resume_yoe["total_years"]
+            p(
+                f"  {label('Estimated YoE:')}  {col(f'~{total_yrs} years', C.BRIGHT_WHITE)}"
+            )
         else:
-            p(f"  {label('Estimated YoE:')}  {col('Could not detect date ranges', C.BRIGHT_YELLOW)}")
+            p(
+                f"  {label('Estimated YoE:')}  {col('Could not detect date ranges', C.BRIGHT_YELLOW)}"
+            )
         p()
         for req in yoe_reqs:
             skill_str = f" of {req['skill']}" if req.get("skill") else ""
             req_str = f"{req['years']}+ years{skill_str}"
-            if resume_yoe.get("has_dates") and resume_yoe["total_years"] >= req["years"]:
+            if (
+                resume_yoe.get("has_dates")
+                and resume_yoe["total_years"] >= req["years"]
+            ):
                 p(f"    {col('PASS', C.BRIGHT_GREEN)}  {req_str}")
             else:
                 p(f"    {col('WARN', C.BRIGHT_YELLOW)}  {req_str}")
@@ -394,7 +402,9 @@ def print_report(
             p()
             p(col("  Over-repeated keywords (>4 times):", C.BRIGHT_YELLOW))
             for item in density["stuffed_keywords"]:
-                p(f"    {col('!', C.BRIGHT_YELLOW)}  {item['keyword']} ({item['count']}x)")
+                p(
+                    f"    {col('!', C.BRIGHT_YELLOW)}  {item['keyword']} ({item['count']}x)"
+                )
         p()
 
     # ── RECOMMENDATIONS ──
@@ -462,9 +472,12 @@ def _generate_recommendations(result: Dict) -> list:
             recs.append(
                 col(f"{cat_name}: ", C.BRIGHT_YELLOW, C.BOLD)
                 + f"Missing {kws}. "
-                + ("Add to your Skills section AND mention in Experience bullets "
-                   "for maximum ATS weight." if not sections.get("skills")
-                   else "Add these to your Skills section explicitly.")
+                + (
+                    "Add to your Skills section AND mention in Experience bullets "
+                    "for maximum ATS weight."
+                    if not sections.get("skills")
+                    else "Add these to your Skills section explicitly."
+                )
             )
 
     if not sections.get("summary"):
