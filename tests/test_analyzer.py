@@ -16,6 +16,7 @@ from ats_scanner.analyzer import (
     _analyze_sections,
     get_word_frequencies,
     extract_ngrams,
+    jaccard_similarity,
     SKILL_TAXONOMY,
     STOP_WORDS,
 )
@@ -127,7 +128,7 @@ class TestComputeMatch(unittest.TestCase):
     def test_perfect_match(self):
         text = clean_text("python java react postgresql docker")
         result = compute_match(text, text)
-        self.assertGreater(result["score"], 80)
+        self.assertGreater(result["score"], 95)
 
     def test_matched_count(self):
         result = compute_match(self.strong_resume, self.strong_jd)
@@ -467,6 +468,72 @@ class TestDocxExtraction(unittest.TestCase):
                 extract_text(tmp.name)
         finally:
             os.unlink(tmp.name)
+
+
+class TestJaccardSimilarity(unittest.TestCase):
+    def test_identical_text(self):
+        text = "python developer with react and docker experience"
+        self.assertAlmostEqual(jaccard_similarity(text, text), 1.0)
+
+    def test_no_overlap(self):
+        self.assertAlmostEqual(
+            jaccard_similarity("python java react", "marketing sales finance"), 0.0
+        )
+
+    def test_partial_overlap(self):
+        score = jaccard_similarity(
+            "python java react docker", "python react angular vue"
+        )
+        self.assertGreater(score, 0.2)
+        self.assertLess(score, 0.8)
+
+    def test_empty_both(self):
+        self.assertAlmostEqual(jaccard_similarity("", ""), 1.0)
+
+    def test_empty_one(self):
+        self.assertAlmostEqual(jaccard_similarity("python", ""), 0.0)
+
+    def test_stop_words_ignored(self):
+        score = jaccard_similarity("the python developer", "a python engineer")
+        self.assertGreater(score, 0.0)
+        self.assertLess(score, 1.0)
+
+
+class TestIdenticalTextScoring(unittest.TestCase):
+    def test_identical_tech_text_scores_high(self):
+        text = clean_text("python java react postgresql docker aws kubernetes")
+        result = compute_match(text, text)
+        self.assertGreater(result["score"], 95)
+
+    def test_identical_non_tech_text_scores_high(self):
+        text = clean_text(
+            "Marketing manager with 10 years of brand strategy experience "
+            "leading cross-functional campaigns and driving revenue growth"
+        )
+        result = compute_match(text, text)
+        self.assertGreater(result["score"], 95)
+
+    def test_identical_mixed_text_scores_high(self):
+        text = clean_text(
+            "Software developer with python and react experience "
+            "built web applications for enterprise clients"
+        )
+        result = compute_match(text, text)
+        self.assertGreater(result["score"], 95)
+
+    def test_no_overlap_scores_low(self):
+        resume = clean_text("python java react docker kubernetes aws")
+        jd = clean_text("marketing sales finance accounting budgeting")
+        result = compute_match(resume, jd)
+        self.assertLess(result["score"], 15)
+
+    def test_empty_resume_scores_zero(self):
+        result = compute_match("", "python developer")
+        self.assertEqual(result["score"], 0)
+
+    def test_both_empty_scores_zero(self):
+        result = compute_match("", "")
+        self.assertEqual(result["score"], 0)
 
 
 if __name__ == "__main__":

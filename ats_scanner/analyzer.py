@@ -428,6 +428,23 @@ def get_word_frequencies(text: str) -> Counter:
     return Counter(filtered)
 
 
+def jaccard_similarity(text_a: str, text_b: str) -> float:
+    """
+    Compute Jaccard similarity between two texts based on meaningful words.
+    Returns 0.0-1.0 where 1.0 means identical word sets.
+    Reuses get_word_frequencies() to keep word-extraction logic in one place.
+    """
+    words_a = set(get_word_frequencies(text_a).keys())
+    words_b = set(get_word_frequencies(text_b).keys())
+    if not words_a and not words_b:
+        return 1.0
+    if not words_a or not words_b:
+        return 0.0
+    intersection = words_a & words_b
+    union = words_a | words_b
+    return len(intersection) / len(union)
+
+
 def compute_match(resume_text: str, jd_text: str) -> Dict:
     """
     Core matching algorithm.
@@ -468,13 +485,19 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
     else:
         weighted_score = 0
 
-    # Word frequency overlap bonus
-    jd_freq = get_word_frequencies(jd_lower)
-    resume_freq = get_word_frequencies(resume_lower)
-    common_words = set(jd_freq.keys()) & set(resume_freq.keys())
-    freq_bonus = min(10, len(common_words) * 0.3)
+    # Guard: both texts empty → score 0 (not 100 via Jaccard edge case)
+    if not resume_lower.strip() and not jd_lower.strip():
+        final_score = 0.0
+        text_score = 0.0
+    else:
+        text_score = jaccard_similarity(resume_lower, jd_lower) * 100
 
-    final_score = min(99, weighted_score + freq_bonus)
+        if total_weight > 0:
+            final_score = (0.75 * weighted_score) + (0.25 * text_score)
+        else:
+            final_score = text_score
+
+        final_score = min(100, final_score)
 
     # Categorize matched/missing by category
     matched_by_cat = {}
@@ -525,6 +548,9 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
         "sections": sections,
         "jd_keyword_count": len(jd_flat),
         "resume_keyword_count": len(resume_flat),
+        "text_similarity": round(text_score, 1)
+        if resume_lower.strip() or jd_lower.strip()
+        else 0.0,
     }
 
 

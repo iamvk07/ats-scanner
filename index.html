@@ -788,6 +788,16 @@ function getNgrams(text, n=2){
   return ng;
 }
 
+function jaccardSimilarity(textA, textB){
+  const wordsA = new Set(getWords(textA));
+  const wordsB = new Set(getWords(textB));
+  if(!wordsA.size && !wordsB.size) return 1;
+  if(!wordsA.size || !wordsB.size) return 0;
+  const intersection = [...wordsA].filter(w => wordsB.has(w)).length;
+  const union = new Set([...wordsA, ...wordsB]).size;
+  return intersection / union;
+}
+
 function analyze(resumeText, jdText){
   const rc = clean(resumeText), jc = clean(jdText);
   const rKws = extractKws(rc), jKws = extractKws(jc);
@@ -805,9 +815,19 @@ function analyze(resumeText, jdText){
       matchW += [...jCat].filter(k=>rCat.has(k)).length * data.weight;
     }
   }
-  let score = totalW>0?(matchW/totalW)*100:0;
-  const jWords = new Set(getWords(jc)), rWords = new Set(getWords(rc));
-  score = Math.min(99, score + Math.min(10,[...jWords].filter(w=>rWords.has(w)).length*0.3));
+  let score;
+  if(!rc.trim() && !jc.trim()){
+    score = 0;
+  } else {
+    const keywordScore = totalW>0?(matchW/totalW)*100:0;
+    const textScore = jaccardSimilarity(rc, jc) * 100;
+    if(totalW > 0){
+      score = (0.75 * keywordScore) + (0.25 * textScore);
+    } else {
+      score = textScore;
+    }
+    score = Math.min(100, score);
+  }
 
   // By category
   const matchedByCat={}, missingByCat={};
@@ -824,9 +844,9 @@ function analyze(resumeText, jdText){
   const missingPhrases=[...jNg]
     .filter(p=>!rNg.has(p)&&!p.split(' ').some(w=>STOP.has(w)))
     .sort((a,b)=>(jc.match(new RegExp(b,'g'))||[]).length-(jc.match(new RegExp(a,'g'))||[]).length)
-    .slice(0,8);
+    .slice(0,10);
 
-  const bonusSkills=[...rFlat].filter(k=>!jFlat.has(k)).sort().slice(0,18);
+  const bonusSkills=[...rFlat].filter(k=>!jFlat.has(k)).sort().slice(0,15);
 
   const sections={
     contact:    /email|phone|@|\d{3}/.test(rc),
