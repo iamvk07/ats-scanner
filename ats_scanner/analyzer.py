@@ -712,6 +712,68 @@ def extract_ngrams_weighted(text: str, max_n: int = 4) -> Counter:
     return ngram_counts
 
 
+# ── SECTION-AWARE SCORING ─────────────────────────────────────────────────────
+
+SECTION_MULTIPLIERS = {
+    "skills": 1.5,
+    "experience": 1.3,
+    "summary": 1.2,
+    "projects": 1.1,
+    "education": 1.0,
+    "other": 1.0,
+}
+
+SECTION_HEADERS = {
+    "skills": re.compile(
+        r"(?:^|\n)\s*(?:skills?|technical\s+skills?|core\s+competencies)\s*\n",
+        re.IGNORECASE,
+    ),
+    "experience": re.compile(
+        r"(?:^|\n)\s*(?:experience|work\s+history|employment|professional\s+experience)\s*\n",
+        re.IGNORECASE,
+    ),
+    "summary": re.compile(
+        r"(?:^|\n)\s*(?:summary|objective|professional\s+summary|profile|about\s+me)\s*\n",
+        re.IGNORECASE,
+    ),
+    "projects": re.compile(
+        r"(?:^|\n)\s*(?:projects?|personal\s+projects?|academic\s+projects?)\s*\n",
+        re.IGNORECASE,
+    ),
+    "education": re.compile(
+        r"(?:^|\n)\s*(?:education|university|college|degree|certifications?)\s*\n",
+        re.IGNORECASE,
+    ),
+}
+
+
+def segment_resume(text: str) -> Dict[str, str]:
+    """
+    Split resume text into section blocks.
+    Returns {section_name: section_text}. Text before any header goes into 'other'.
+    """
+    boundaries = []
+    for section_name, pattern in SECTION_HEADERS.items():
+        match = pattern.search(text)
+        if match:
+            boundaries.append((match.start(), section_name))
+
+    if not boundaries:
+        return {"other": text}
+
+    boundaries.sort(key=lambda x: x[0])
+
+    sections = {}
+    if boundaries[0][0] > 0:
+        sections["other"] = text[: boundaries[0][0]]
+
+    for i, (pos, name) in enumerate(boundaries):
+        end = boundaries[i + 1][0] if i + 1 < len(boundaries) else len(text)
+        sections[name] = text[pos:end]
+
+    return sections
+
+
 def compute_match(resume_text: str, jd_text: str) -> Dict:
     """
     Core matching algorithm.
@@ -732,23 +794,40 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
     matched = jd_flat & resume_flat
     missing = jd_flat - resume_flat
 
-    # Weighted score
+    # Section-aware weighted score
+    resume_sections = segment_resume(resume_lower)
     total_weight = 0
     matched_weight = 0
+    keyword_placement = {}
 
     for category, data in SKILL_TAXONOMY.items():
         weight = data["weight"]
         jd_cat_kws = set(jd_keywords.get(category, []))
-        resume_cat_kws = set(resume_keywords.get(category, []))
 
         if jd_cat_kws:
-            cat_matched = jd_cat_kws & resume_cat_kws
             total_weight += len(jd_cat_kws) * weight
-            matched_weight += len(cat_matched) * weight
 
-    # Base score
+            for kw in jd_cat_kws:
+                best_multiplier = 0.0
+                best_section = None
+                for section_name, section_text in resume_sections.items():
+                    if kw in SPECIAL_PATTERNS:
+                        pattern = SPECIAL_PATTERNS[kw]
+                    else:
+                        pattern = r"\b" + re.escape(kw) + r"\b"
+                    if re.search(pattern, section_text):
+                        mult = SECTION_MULTIPLIERS.get(section_name, 1.0)
+                        if mult > best_multiplier:
+                            best_multiplier = mult
+                            best_section = section_name
+
+                if best_multiplier > 0:
+                    matched_weight += weight * min(best_multiplier, 1.5)
+                    if best_section:
+                        keyword_placement.setdefault(best_section, []).append(kw)
+
     if total_weight > 0:
-        weighted_score = (matched_weight / total_weight) * 100
+        weighted_score = min(100, (matched_weight / total_weight) * 100)
     else:
         weighted_score = 0
 
@@ -831,6 +910,7 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
         "dynamic_jd_keywords": dynamic_jd_keywords,
         "dynamic_matched": dynamic_matched,
         "dynamic_missing": dynamic_missing,
+        "keyword_placement": keyword_placement,
     }
 
 

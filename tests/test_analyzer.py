@@ -15,6 +15,7 @@ from ats_scanner.analyzer import (
     normalize_text,
     bm25_similarity,
     extract_ngrams_weighted,
+    segment_resume,
     _score_to_grade,
     _analyze_sections,
     get_word_frequencies,
@@ -547,6 +548,34 @@ class TestIdenticalTextScoring(unittest.TestCase):
     def test_both_empty_scores_zero(self):
         result = compute_match("", "")
         self.assertEqual(result["score"], 0)
+
+
+class TestSectionAwareScoring(unittest.TestCase):
+    def test_keyword_in_skills_scores_higher(self):
+        resume_skills = "skills\npython java\nexperience\nworked at company"
+        resume_other = "some intro text\npython java"
+        jd = "requires python java react docker postgresql kubernetes aws"
+        result_skills = compute_match(resume_skills, jd)
+        result_other = compute_match(resume_other, jd)
+        self.assertGreaterEqual(result_skills["score"], result_other["score"])
+
+    def test_segment_resume_basic(self):
+        text = "John Doe\nskills\npython java\nexperience\nworked at company"
+        sections = segment_resume(text)
+        self.assertIn("skills", sections)
+        self.assertIn("experience", sections)
+
+    def test_segment_resume_no_headers(self):
+        text = "just some plain text without any section headers"
+        sections = segment_resume(text)
+        self.assertIn("other", sections)
+        self.assertEqual(len(sections), 1)
+
+    def test_keyword_placement_in_result(self):
+        resume = clean_text("skills\npython java\nexperience\nworked with react")
+        jd = clean_text("requires python java react")
+        result = compute_match(resume, jd)
+        self.assertIn("keyword_placement", result)
 
 
 class TestBM25(unittest.TestCase):
