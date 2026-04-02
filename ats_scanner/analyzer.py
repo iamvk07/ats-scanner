@@ -495,6 +495,81 @@ def extract_keywords(text: str) -> Dict[str, List[str]]:
     return found
 
 
+# ── DYNAMIC JD KEYWORD EXTRACTION ────────────────────────────────────────────
+
+REQUIREMENT_SIGNALS = re.compile(
+    r"(?:experience\s+(?:with|in|using)|"
+    r"proficien(?:t|cy)\s+(?:with|in)|"
+    r"knowledge\s+of|"
+    r"familiar(?:ity)?\s+with|"
+    r"expertise\s+(?:in|with)|"
+    r"(?:must|should)\s+(?:have|know)|"
+    r"required|preferred|nice\s+to\s+have|"
+    r"skills?\s*:)"
+    r"\s+(.+?)(?:\.|,|;|\n|$)",
+    re.IGNORECASE,
+)
+
+BULLET_PATTERN = re.compile(r"(?:^|\n)\s*(?:[-*+]|\d+[.)]\s)\s*(.+?)(?:\n|$)")
+
+
+def extract_dynamic_keywords(jd_text: str, taxonomy_keywords: Set[str]) -> List[str]:
+    """
+    Extract potential skill keywords from JD text that are NOT in the
+    static taxonomy. Uses requirement contexts, capitalized terms, and
+    bullet points as signals.
+    """
+    candidates = set()
+
+    # 1. Terms from requirement signal contexts
+    for match in REQUIREMENT_SIGNALS.finditer(jd_text):
+        phrase = match.group(1).strip()
+        for term in re.split(r",\s*|\s+and\s+|\s+or\s+", phrase):
+            term = term.strip().lower()
+            term = re.sub(r"[^\w\s\+#\.\-]", "", term).strip()
+            if (
+                len(term) > 2
+                and term not in STOP_WORDS
+                and term not in taxonomy_keywords
+            ):
+                candidates.add(term)
+
+    # 2. Capitalized terms (proper nouns / tool names) from original text
+    cap_pattern = re.compile(r"\b([A-Z][a-zA-Z0-9\+#\.]*(?:\s+[A-Z][a-zA-Z0-9]*)*)\b")
+    for match in cap_pattern.finditer(jd_text):
+        term = match.group(1).strip()
+        term_lower = term.lower()
+        pos = match.start()
+        is_sentence_start = (
+            pos == 0
+            or jd_text[pos - 1] in ".!?\n"
+            or (pos >= 2 and jd_text[pos - 2 : pos] in ". ")
+        )
+        if (
+            len(term_lower) > 2
+            and term_lower not in STOP_WORDS
+            and term_lower not in taxonomy_keywords
+            and not is_sentence_start
+        ):
+            candidates.add(term_lower)
+
+    # 3. Terms from bullet points
+    for match in BULLET_PATTERN.finditer(jd_text):
+        line = match.group(1).strip()
+        words = [w.strip().lower() for w in re.split(r",\s*|\s+and\s+", line)]
+        for w in words:
+            w = re.sub(r"[^\w\s\+#\.\-]", "", w).strip()
+            if (
+                len(w) > 2
+                and w not in STOP_WORDS
+                and w not in taxonomy_keywords
+                and len(w.split()) <= 3
+            ):
+                candidates.add(w)
+
+    return sorted(candidates)
+
+
 def extract_ngrams(text: str, n: int = 2) -> List[str]:
     """Extract meaningful n-grams from text."""
     words = [
@@ -616,6 +691,16 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
     # Bonus skills in resume not in JD
     bonus_skills = sorted(resume_flat - jd_flat)
 
+    # Dynamic JD keywords (terms not in taxonomy)
+    all_taxonomy_kws = {kw for cat in SKILL_TAXONOMY.values() for kw in cat["keywords"]}
+    dynamic_jd_keywords = extract_dynamic_keywords(jd_text, all_taxonomy_kws)
+    dynamic_matched = [
+        kw
+        for kw in dynamic_jd_keywords
+        if re.search(r"\b" + re.escape(kw) + r"\b", resume_lower)
+    ]
+    dynamic_missing = [kw for kw in dynamic_jd_keywords if kw not in dynamic_matched]
+
     # Grade
     grade = _score_to_grade(final_score)
 
@@ -638,6 +723,9 @@ def compute_match(resume_text: str, jd_text: str) -> Dict:
         "text_similarity": round(text_score, 1)
         if resume_lower.strip() or jd_lower.strip()
         else 0.0,
+        "dynamic_jd_keywords": dynamic_jd_keywords,
+        "dynamic_matched": dynamic_matched,
+        "dynamic_missing": dynamic_missing,
     }
 
 

@@ -547,6 +547,46 @@ class TestIdenticalTextScoring(unittest.TestCase):
         self.assertEqual(result["score"], 0)
 
 
+class TestDynamicKeywordExtraction(unittest.TestCase):
+    def test_extracts_from_requirement_context(self):
+        jd = "Experience with Terraform and Pulumi required"
+        from ats_scanner.analyzer import extract_dynamic_keywords
+
+        taxonomy = {kw for cat in SKILL_TAXONOMY.values() for kw in cat["keywords"]}
+        dynamic = extract_dynamic_keywords(jd, taxonomy)
+        self.assertIn("pulumi", dynamic)
+
+    def test_does_not_duplicate_taxonomy(self):
+        jd = "Experience with Python and Docker"
+        from ats_scanner.analyzer import extract_dynamic_keywords
+
+        taxonomy = {kw for cat in SKILL_TAXONOMY.values() for kw in cat["keywords"]}
+        dynamic = extract_dynamic_keywords(jd, taxonomy)
+        self.assertNotIn("python", dynamic)
+        self.assertNotIn("docker", dynamic)
+
+    def test_extracts_from_bullets(self):
+        jd = "Requirements:\n- Datadog monitoring\n- Grafana dashboards"
+        from ats_scanner.analyzer import extract_dynamic_keywords
+
+        taxonomy = {kw for cat in SKILL_TAXONOMY.values() for kw in cat["keywords"]}
+        dynamic = extract_dynamic_keywords(jd, taxonomy)
+        has_datadog = any("datadog" in d for d in dynamic)
+        has_grafana = any("grafana" in d for d in dynamic)
+        self.assertTrue(
+            has_datadog or has_grafana,
+            f"Expected datadog or grafana in dynamic keywords, got: {dynamic}",
+        )
+
+    def test_dynamic_keywords_in_result(self):
+        resume = clean_text("python developer with react experience")
+        jd = clean_text("python react and pulumi experience required")
+        result = compute_match(resume, jd)
+        self.assertIn("dynamic_jd_keywords", result)
+        self.assertIn("dynamic_matched", result)
+        self.assertIn("dynamic_missing", result)
+
+
 class TestSynonymExpansion(unittest.TestCase):
     def test_postgres_matches_postgresql(self):
         resume = clean_text("experience with postgres databases")

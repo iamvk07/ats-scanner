@@ -304,6 +304,22 @@ def print_report(
             p(f"    {col('→', C.BRIGHT_YELLOW)}  {phrase}")
         p()
 
+    # ── DYNAMIC JD KEYWORDS ──
+    dynamic_missing = result.get("dynamic_missing", [])
+    dynamic_matched = result.get("dynamic_matched", [])
+    if dynamic_missing or dynamic_matched:
+        p(section_line())
+        p(f"  {bold(col('⚡ ADDITIONAL JD REQUIREMENTS', C.BRIGHT_YELLOW))}")
+        p(section_line())
+        p()
+        p(col("  Terms from the JD not in our standard taxonomy:", C.DIM))
+        p()
+        for kw in dynamic_matched[:10]:
+            p(f"    {col('✓', C.BRIGHT_GREEN)}  {kw}  ({col('found', C.BRIGHT_GREEN)})")
+        for kw in dynamic_missing[:10]:
+            p(f"    {col('✗', C.BRIGHT_RED)}  {kw}  ({col('missing', C.BRIGHT_RED)})")
+        p()
+
     # ── BONUS SKILLS ──
     if result["bonus_skills"]:
         p(section_line())

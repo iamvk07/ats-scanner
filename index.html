@@ -833,6 +833,37 @@ function jaccardSimilarity(textA, textB){
   return intersection / union;
 }
 
+const REQUIREMENT_SIGNALS = /(?:experience\s+(?:with|in|using)|proficien(?:t|cy)\s+(?:with|in)|knowledge\s+of|familiar(?:ity)?\s+with|expertise\s+(?:in|with)|(?:must|should)\s+(?:have|know)|required|preferred|nice\s+to\s+have|skills?\s*:)\s+(.+?)(?:\.|,|;|\n|$)/gi;
+const BULLET_PATTERN = /(?:^|\n)\s*(?:[-*+]|\d+[.)]\s)\s*(.+?)(?:\n|$)/g;
+
+function extractDynamicKeywords(jdText, taxonomyKws){
+  const candidates = new Set();
+  let m;
+  REQUIREMENT_SIGNALS.lastIndex=0;
+  while((m=REQUIREMENT_SIGNALS.exec(jdText))!==null){
+    const phrase=m[1].trim();
+    for(const term of phrase.split(/,\s*|\s+and\s+|\s+or\s+/)){
+      const t=term.trim().toLowerCase().replace(/[^\w\s+#.\-]/g,'').trim();
+      if(t.length>2 && !STOP.has(t) && !taxonomyKws.has(t)) candidates.add(t);
+    }
+  }
+  const capPat=/\b([A-Z][a-zA-Z0-9+#.]*(?:\s+[A-Z][a-zA-Z0-9]*)*)\b/g;
+  while((m=capPat.exec(jdText))!==null){
+    const t=m[1].trim(), tl=t.toLowerCase(), pos=m.index;
+    const isSentStart=pos===0||'.!?\n'.includes(jdText[pos-1])||(pos>=2&&jdText.slice(pos-2,pos)==='. ');
+    if(tl.length>2 && !STOP.has(tl) && !taxonomyKws.has(tl) && !isSentStart) candidates.add(tl);
+  }
+  BULLET_PATTERN.lastIndex=0;
+  while((m=BULLET_PATTERN.exec(jdText))!==null){
+    const line=m[1].trim();
+    for(const w of line.split(/,\s*|\s+and\s+/)){
+      const t=w.trim().toLowerCase().replace(/[^\w\s+#.\-]/g,'').trim();
+      if(t.length>2 && !STOP.has(t) && !taxonomyKws.has(t) && t.split(/\s+/).length<=3) candidates.add(t);
+    }
+  }
+  return [...candidates].sort();
+}
+
 function analyze(resumeText, jdText){
   const rc = normalizeText(clean(resumeText)), jc = normalizeText(clean(jdText));
   const rKws = extractKws(rc), jKws = extractKws(jc);
@@ -883,6 +914,11 @@ function analyze(resumeText, jdText){
 
   const bonusSkills=[...rFlat].filter(k=>!jFlat.has(k)).sort().slice(0,15);
 
+  const allTaxKws=new Set(Object.values(TAXONOMY).flatMap(d=>d.kws));
+  const dynamicJdKws=extractDynamicKeywords(jdText, allTaxKws);
+  const dynamicMatched=dynamicJdKws.filter(k=>new RegExp('\\b'+k.replace(/[+.]/g,'\\$&')+'\\b','i').test(rc));
+  const dynamicMissing=dynamicJdKws.filter(k=>!dynamicMatched.includes(k));
+
   const sections={
     contact:    /email|phone|@|\d{3}/.test(rc),
     education:  /(?:^|\n)\s*(?:education|university|college|degree|bachelor|master)/m.test(rc),
@@ -899,7 +935,8 @@ function analyze(resumeText, jdText){
     matched:matched.size, missing:missing.size,
     total:jFlat.size,
     matchedByCat, missingByCat,
-    missingPhrases, bonusSkills, sections
+    missingPhrases, bonusSkills, sections,
+    dynamicJdKws, dynamicMatched, dynamicMissing
   };
 }
 
