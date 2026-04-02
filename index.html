@@ -938,6 +938,7 @@ function extractDynamicKeywords(jdText, taxonomyKws){
 
 function analyze(resumeText, jdText){
   const rc = normalizeText(clean(resumeText)), jc = normalizeText(clean(jdText));
+  const resumeRaw = resumeText.toLowerCase();
   const rKws = extractKws(rc), jKws = extractKws(jc);
   const rFlat = new Set(Object.values(rKws).flat());
   const jFlat = new Set(Object.values(jKws).flat());
@@ -949,7 +950,7 @@ function analyze(resumeText, jdText){
   const dynamicMatched=dynamicJdKws.filter(k=>new RegExp('\\b'+k.replace(/[+.]/g,'\\$&')+'\\b','i').test(rc));
   const dynamicMissing=dynamicJdKws.filter(k=>!dynamicMatched.includes(k));
 
-  const resumeSections=segmentResume(rc);
+  const resumeSections=segmentResume(resumeRaw);
   let totalW=0, matchW=0;
   const kwPlacement={};
   for(const [cat,data] of Object.entries(TAXONOMY)){
@@ -1014,12 +1015,12 @@ function analyze(resumeText, jdText){
   const bonusSkills=[...rFlat].filter(k=>!jFlat.has(k)).sort().slice(0,15);
 
   const sections={
-    contact:    /email|phone|@|\d{3}/.test(rc),
-    education:  /(?:^|\n)\s*(?:education|university|college|degree|bachelor|master)/m.test(rc),
-    experience: /(?:^|\n)\s*(?:experience|work\s+history|employment|professional\s+experience)/m.test(rc),
-    projects:   /(?:^|\n)\s*(?:projects?|personal\s+projects?|academic\s+projects?)/m.test(rc),
-    skills:     /(?:^|\n)\s*(?:skills?|technical\s+skills?|core\s+competencies)/m.test(rc),
-    summary:    /(?:^|\n)\s*(?:summary|objective|professional\s+summary|profile|about\s+me)/m.test(rc),
+    contact:    /email|phone|@|\d{3}/.test(resumeRaw),
+    education:  /(?:^|\n)\s*(?:education|university|college|degree|bachelor|master)/m.test(resumeRaw),
+    experience: /(?:^|\n)\s*(?:experience|work\s+history|employment|professional\s+experience)/m.test(resumeRaw),
+    projects:   /(?:^|\n)\s*(?:projects?|personal\s+projects?|academic\s+projects?)/m.test(resumeRaw),
+    skills:     /(?:^|\n)\s*(?:skills?|technical\s+skills?|core\s+competencies)/m.test(resumeRaw),
+    summary:    /(?:^|\n)\s*(?:summary|objective|professional\s+summary|profile|about\s+me)/m.test(resumeRaw),
   };
 
   const grade = score>=85?'A':score>=75?'B':score>=60?'C':score>=45?'D':'F';
@@ -1217,9 +1218,10 @@ function stripLatex(text){
         text = next;
     }
     text = text.replace(/\\href\{[^}]*\}\{([^}]*)\}/g, '$1');
+    text = text.replace(/\\(?:cvitem|cventry|cvlistitem|cvdoubleitem|cvcolumn|cvskill|cvitemwithcomment|name|address|email|phone|social|extrainfo)(?:\[[^\]]*\])?/g, ' ');
     text = text.replace(/\\[a-zA-Z]+\*?(?:\[[^\]]*\])?(?:\{[^}]*\})*/g, '');
     text = text.replace(/\\[\\&%$#_{}~^]/g, ' ');
-    text = text.replace(/[{}]/g, '');
+    text = text.replace(/[{}]/g, ' ');
     text = text.replace(/[ \t]+/g, ' ');
     text = text.replace(/\n\s*\n+/g, '\n');
     return text.trim();

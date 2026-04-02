@@ -142,6 +142,19 @@ def strip_latex(text: str) -> str:
     # Handle \href{url}{text} -> text
     text = re.sub(r"\\href\{[^}]*\}\{([^}]*)\}", r"\1", text)
 
+    # Strip moderncv / resume-class command names but KEEP their {arg} content.
+    # e.g. \cvitem{Key}{Value} -> {Key}{Value} (braces cleaned later)
+    #      \cventry{yr}{title}{co}{loc}{grade}{details} -> keeps all args
+    #      \name{First}{Last} -> {First}{Last}
+    text = re.sub(
+        r"\\(?:cvitem|cventry|cvlistitem|cvdoubleitem|cvcolumn"
+        r"|cvskill|cvitemwithcomment"
+        r"|name|address|email|phone|social|extrainfo)"
+        r"(?:\[[^\]]*\])?",
+        " ",
+        text,
+    )
+
     # Remove remaining \command with optional [] and {} args
     text = re.sub(r"\\[a-zA-Z]+\*?(?:\[[^\]]*\])?(?:\{[^}]*\})*", "", text)
 
@@ -149,7 +162,7 @@ def strip_latex(text: str) -> str:
     text = re.sub(r"\\[\\&%$#_{}~^]", " ", text)
 
     # Clean up leftover braces, multiple spaces, blank lines
-    text = re.sub(r"[{}]", "", text)
+    text = re.sub(r"[{}]", " ", text)
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n\s*\n+", "\n", text)
 
