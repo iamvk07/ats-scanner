@@ -1,6 +1,0 @@
-# ATS Scanner - Zero external dependencies!
-# Requires Python 3.8+
-# All functionality uses Python standard library only.
-
-# Optional: for running tests
-# pytest>=7.0.0  (or use: python -m unittest discover)

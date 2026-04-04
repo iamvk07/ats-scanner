@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATS Scanner — Resume Analyzer</title>
+</head>
+<body>
+
+<header>
+  <a href="./" class="logo">
+    <div class="logo-icon">></div>
+    <div class="logo-name">ATS<span>Scanner</span></div>
+  </a>
+  <div class="header-right">
+    <a href="https://github.com/Calebe94/ats-scanner" target="_blank" class="hdr-link">GitHub</a>
+  </div>
+</header>
+
+<div class="app">
+  <div class="input-section">
+    <div class="input-grid">
+
+      <div class="input-card" id="resumeCard" onclick="cardClick('resume',event)">
+        <div class="ic-head">
+          <div class="ic-dot"></div>
+          <span class="ic-title">Your Resume</span>
+          <span class="ic-tip" data-tip="Include: contact info, education, work experience, projects, and skills section">?</span>
+          <div class="tab-pair">
+            <button class="tp-btn on" onclick="switchTab('resume','paste',this)">Paste</button>
+            <button class="tp-btn" onclick="switchTab('resume','upload',this)">Upload</button>
+          </div>
+        </div>
+        <div id="resume-paste">
+          <textarea class="ta" id="resumeText" placeholder="Paste your full resume here..."></textarea>
+        </div>
+        <div id="resume-upload" style="display:none;">
+          <input type="file" id="resumeFile" accept=".txt,.pdf,.tex,.docx" onchange="handleFile('resume',this)">
+          <div class="upload-zone" id="resumeDrop"
+            onclick="document.getElementById('resumeFile').click()"
+            ondragover="onDrag(event,true,'resumeDrop')"
+            ondragleave="onDrag(event,false,'resumeDrop')"
+            ondrop="onDrop(event,'resume')">
+            <div class="uz-icon">📄</div>
+            <div class="uz-text">Drop file or <strong>browse</strong></div>
+            <div class="uz-hint">.txt, .pdf, .tex, or .docx supported</div>
+            <div class="uz-fname" id="resumeFName"></div>
+            <div class="upload-loading">
+              <div class="ul-spinner"></div>
+              <div class="ul-msg">Reading file...</div>
+            </div>
+          </div>
+          <div class="file-info" id="resumeFileInfo">
+            <div class="fi-header">
+              <div class="fi-icon">📄</div>
+              <div class="fi-meta">
+                <div class="fi-name" id="resumeFiName"></div>
+                <div class="fi-details">
+                  <span class="fi-badge" id="resumeFiBadge"></span>
+                  <span class="fi-size" id="resumeFiSize"></span>
+                </div>
+              </div>
+              <button class="fi-change" onclick="changeFile('resume',event)">Change</button>
+            </div>
+            <div class="fi-preview" id="resumePreview">
+              <div class="fi-preview-head">
+                <span class="fi-preview-label">Content Preview</span>
+                <button class="fi-preview-toggle" onclick="togglePreview('resume',event)">Hide</button>
+              </div>
+              <div class="fi-preview-body" id="resumePreviewBody"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-card" id="jdCard" onclick="cardClick('jd',event)">
+        <div class="ic-head">
+          <div class="ic-dot"></div>
+          <span class="ic-title">Job Description</span>
+          <span class="ic-tip" data-tip="Include: required skills, responsibilities, nice-to-have skills, and qualifications">?</span>
+          <div class="tab-pair">
+            <button class="tp-btn on" onclick="switchTab('jd','paste',this)">Paste</button>
+            <button class="tp-btn" onclick="switchTab('jd','upload',this)">Upload</button>
+          </div>
+        </div>
+        <div id="jd-paste">
+          <textarea class="ta" id="jdText" placeholder="Paste the full job description here..." lang="en" spellcheck="true"></textarea>
+        </div>
+        <div id="jd-upload" style="display:none;">
+          <input type="file" id="jdFile" accept=".txt,.pdf,.tex,.docx" onchange="handleFile('jd',this)">
+          <div class="upload-zone" id="jdDrop"
+            onclick="document.getElementById('jdFile').click()"
+            ondragover="onDrag(event,true,'jdDrop')"
+            ondragleave="onDrag(event,false,'jdDrop')"
+            ondrop="onDrop(event,'jd')">
+            <div class="uz-icon">📋</div>
+            <div class="uz-text">Drop file or <strong>browse</strong></div>
+            <div class="uz-hint">.txt, .pdf, .tex, or .docx supported</div>
+            <div class="uz-fname" id="jdFName"></div>
+            <div class="upload-loading">
+              <div class="ul-spinner"></div>
+              <div class="ul-msg">Reading file...</div>
+            </div>
+          </div>
+          <div class="file-info" id="jdFileInfo">
+            <div class="fi-header">
+              <div class="fi-icon">📋</div>
+              <div class="fi-meta">
+                <div class="fi-name" id="jdFiName"></div>
+                <div class="fi-details">
+                  <span class="fi-badge" id="jdFiBadge"></span>
+                  <span class="fi-size" id="jdFiSize"></span>
+                </div>
+              </div>
+              <button class="fi-change" onclick="changeFile('jd',event)">Change</button>
+            </div>
+            <div class="fi-preview" id="jdPreview">
+              <div class="fi-preview-head">
+                <span class="fi-preview-label">Content Preview</span>
+                <button class="fi-preview-toggle" onclick="togglePreview('jd',event)">Hide</button>
+              </div>
+              <div class="fi-preview-body" id="jdPreviewBody"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button class="clear-btn" onclick="clearAll()">↺ Clear</button>
+      <button class="scan-btn" id="scanBtn" onclick="runScan()">
+        <div class="sp"></div>
+        <span class="sl">⚡ Analyze Resume</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="results">
+    <div class="score-hero" id="scoreHero">
+      <div class="score-ring-wrap">
+        <svg width="96" height="96" viewBox="0 0 96 96">
+          <circle class="sr-bg" cx="48" cy="48" r="40"/>
+          <circle class="sr-fill" id="scoreRing" cx="48" cy="48" r="40"
+            stroke-dasharray="251" stroke-dashoffset="251"/>
+        </svg>
+        <div class="score-num-wrap">
+          <div class="score-pct" id="scorePct">0%</div>
+          <div class="score-grade" id="scoreGrade">—</div>
+        </div>
+      </div>
+      <div class="score-info">
+        <h2 id="scoreTitle">Analyzing...</h2>
+        <div class="score-msg" id="scoreMsg"></div>
+        <div class="score-pills" id="scorePills"></div>
+        <div class="prog-wrap">
+          <div class="prog-track">
+            <div class="prog-fill" id="progFill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="quick-stats">
+        <div class="qs-box">
+          <div class="qs-num" id="qsTotal" style="color:var(--muted3)">—</div>
+          <div class="qs-lbl">JD Keywords</div>
+        </div>
+        <div class="qs-box">
+          <div class="qs-num" id="qsMatched" style="color:var(--green)">—</div>
+          <div class="qs-lbl">Matched</div>
+        </div>
+        <div class="qs-box">
+          <div class="qs-num" id="qsMissing" style="color:var(--red)">—</div>
+          <div class="qs-lbl">Missing</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="results-grid">
+      <div class="panel">
+        <div class="panel-head">
+          <span class="ph-icon">✓</span>
+          <span class="ph-title" style="color:var(--green)">Matched Keywords</span>
+          <span class="ph-count" id="matchedCount">0</span>
+        </div>
+        <div class="panel-body" id="matchedBody"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="ph-icon">✗</span>
+          <span class="ph-title" style="color:var(--red)">Missing Keywords</span>
+          <span class="ph-count" id="missingCount">0</span>
+        </div>
+        <div class="panel-body" id="missingBody"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="ph-icon">+</span>
+          <span class="ph-title" style="color:var(--blue)">Bonus Skills</span>
+          <span class="ph-count" id="bonusCount">0</span>
+        </div>
+        <div class="panel-body" id="bonusBody"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="ph-icon">📋</span>
+          <span class="ph-title">Resume Sections</span>
+        </div>
+        <div class="panel-body" id="sectionsBody"></div>
+      </div>
+      <div class="panel full">
+        <div class="panel-head">
+          <span class="ph-icon">◈</span>
+          <span class="ph-title" style="color:var(--yellow)">Key Phrases From JD Not In Resume</span>
+          <span class="ph-count" id="phrasesCount">0</span>
+        </div>
+        <div class="panel-body" id="phrasesBody"></div>
+      </div>
+      <div class="panel full">
+        <div class="panel-head">
+          <span class="ph-icon">💡</span>
+          <span class="ph-title" style="color:var(--purple)">Recommendations</span>
+        </div>
+        <div class="panel-body" id="recsBody"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <a href="https://github.com/Calebe94/ats-scanner">ATS Scanner</a> &nbsp;·&nbsp;
+  <a href="https://github.com/Calebe94/ats-scanner" target="_blank">calebe94</a> &nbsp;·&nbsp;
+  <a href="https://blog.calebe.dev.br" target="_blank">blog.calebe.dev.br</a>
+</footer>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

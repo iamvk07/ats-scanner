@@ -1,8 +1,8 @@
-# ATS Scanner 🎯
+# ATS Scanner
 
-A command-line tool that analyzes how well your resume matches a job description — the same way Applicant Tracking Systems (ATS) do.
+A CLI + web tool that analyzes how well your resume matches a job description — the same way Applicant Tracking Systems (ATS) do.
 
-**Zero external dependencies. Pure Python 3.8+.**
+**TypeScript monorepo. Shared core engine. Zero runtime dependencies for web.**
 
 ```
    _  _____ ____   ____
@@ -16,90 +16,56 @@ A command-line tool that analyzes how well your resume matches a job description
 
 Paste your resume and a job description — ATS Scanner tells you:
 
-- 📊 **Match Score** (0–100%) with letter grade
-- ✅ **Matched Keywords** — what you have that the JD wants
-- ❌ **Missing Keywords** — what you're lacking, by category
-- 💡 **Recommendations** — actionable suggestions to improve your score
-- 🔍 **Key Phrases** — important phrases from the JD not in your resume
-- ⭐ **Bonus Skills** — skills you have beyond what's required
-- 📋 **Resume Section Check** — detects missing sections
+- **Match Score** (0-100%) with letter grade
+- **Matched Keywords** — what you have that the JD wants
+- **Missing Keywords** — what you're lacking, by category
+- **Recommendations** — actionable suggestions to improve your score
+- **Key Phrases** — important phrases from the JD not in your resume
+- **Bonus Skills** — skills you have beyond what's required
+- **Resume Section Check** — detects missing sections
+- **Keyword Density** — flags over-repetition (BM25 saturation)
+- **Years of Experience** — detects and validates YoE requirements
 
-## Demo
-
-```bash
-python scan.py --demo
-```
-
-Output:
-```
-═══════════════════════════════════════════════════════════════════════
-                         ATS SCANNER
-                Resume vs Job Description Analyzer
-               by calebe94 · github.com/Calebe94
-
-  Resume:            demo_resume.txt
-  Job Description:   demo_job_description.txt
-  Analyzed:          2026-03-20 14:32
-
-  MATCH SCORE
-  ─────────────────────────────────────────────────────────────────────
-  78.4%  [████████████████████████████░░░░░░░░░░░░]  [B]
-
-  ✦ Good match — a few gaps to address
-
-  Matched:  18     Missing:  4
-```
-
-## Installation
-
-No installation needed. Just clone and run:
+## Quick Start
 
 ```bash
+# Clone and install
 git clone https://github.com/Calebe94/ats-scanner
 cd ats-scanner
-python scan.py --help
+pnpm install
+
+# Run demo
+pnpm --filter ats-scanner dev -- --demo
+
+# Analyze files
+pnpm --filter ats-scanner dev -- --resume resume.txt --jd job.txt
+
+# Score only (for scripting)
+pnpm --filter ats-scanner dev -- -r resume.txt -j job.txt -s
 ```
 
-**Requires Python 3.8+** — check with `python --version`
+### Build and run
 
-## Usage
-
-### With files
 ```bash
-# .txt files (recommended)
-python scan.py --resume resume.txt --jd job_description.txt
-
-# .pdf files (basic support)
-python scan.py --resume resume.pdf --jd job.txt
-
-# .tex files (LaTeX resumes)
-python scan.py --resume resume.tex --jd job.txt
-
-# .docx files (Word documents)
-python scan.py --resume resume.docx --jd job.txt
-
-# Save report to JSON
-python scan.py --resume resume.txt --jd job.txt --output report.json
+pnpm build
+node apps/cli/dist/index.js --demo
+node apps/cli/dist/index.js -r resume.txt -j job.txt
 ```
 
-### Interactive mode (no files needed)
+### Web app (development)
+
 ```bash
-python scan.py
-# Prompts you to paste resume text, then job description text
+pnpm dev:web
 ```
 
-### Score only (for scripting)
+### Web app (production build)
+
 ```bash
-python scan.py --resume resume.txt --jd job.txt --score-only
-# Outputs: 78.4
+pnpm build
+pnpm --filter web preview
 ```
 
-### Demo with sample data
-```bash
-python scan.py --demo
-```
-
-## All Options
+## All CLI Options
 
 ```
 --resume,  -r    Path to resume (.txt, .pdf, .tex, or .docx)
@@ -115,10 +81,10 @@ python scan.py --demo
 ## How It Works
 
 1. **Extract** — reads text from .txt/.pdf/.tex/.docx files or direct input
-2. **Tokenize** — cleans and normalizes text
+2. **Normalize** — resolves synonyms (k8s → kubernetes, js → javascript)
 3. **Match** — compares against a taxonomy of 200+ tech keywords across 8 categories
-4. **Weight** — assigns category weights (languages: 10, frameworks: 9, databases: 8...)
-5. **Score** — calculates weighted match percentage + frequency bonus
+4. **Weight** — section-aware scoring (Skills: 1.5x, Experience: 1.3x, Summary: 1.2x)
+5. **Score** — combined formula: 70% taxonomy + 20% BM25 + 10% dynamic keywords
 6. **Report** — generates detailed terminal report with recommendations
 
 ### Keyword Categories
@@ -138,47 +104,68 @@ python scan.py --demo
 
 ```
 ats-scanner/
-├── scan.py                    # Entry point
-├── ats_scanner/
-│   ├── __init__.py
-│   ├── cli.py                 # CLI argument parsing & interactive mode
-│   ├── extractor.py           # Text extraction (.txt, .pdf, .tex, .docx, raw)
-│   ├── analyzer.py            # Core keyword matching engine
-│   └── reporter.py            # Terminal report generation
-├── tests/
-│   └── test_analyzer.py       # Unit tests (25 test cases)
-├── sample_data/
-│   ├── sample_resume.txt      # Example resume
-│   ├── sample_resume.tex      # Example resume (LaTeX)
-│   └── sample_job.txt         # Example job description
-├── requirements.txt           # Zero dependencies!
-└── README.md
+├── package.json                 # Root workspace config
+├── pnpm-workspace.yaml          # Workspace definition
+├── tsconfig.base.json           # Shared TS config
+├── vitest.workspace.ts          # Test config
+├── .github/workflows/           # CI/CD
+│   ├── deploy.yml               # Build + deploy web to GitHub Pages
+│   └── ci.yml                   # PR checks
+├── packages/
+│   └── core/                    # @ats-scanner/core (shared engine)
+│       ├── src/
+│       │   ├── index.ts         # Public API exports
+│       │   ├── analyzer.ts      # Core matching engine
+│       │   ├── extractor.ts     # Text extraction (clean, LaTeX strip)
+│       │   ├── taxonomy.ts      # Keywords, synonyms, constants
+│       │   └── types.ts         # TypeScript interfaces
+│       └── __tests__/           # 92 unit tests
+├── apps/
+│   ├── cli/                     # ats-scanner CLI
+│   │   └── src/
+│   │       ├── index.ts         # Entry point
+│   │       ├── cli.ts           # Commander.js args
+│   │       ├── reporter.ts      # Terminal report
+│   │       ├── extractor.ts     # Node.js file I/O
+│   │       └── demo.ts          # Demo data
+│   └── web/                     # Web application (Vite)
+│       ├── index.html           # Shell HTML
+│       └── src/
+│           ├── main.ts          # Entry + event wiring
+│           ├── scanner.ts       # UI ↔ core bridge
+│           ├── ui.ts            # DOM rendering
+│           ├── file-reader.ts   # Client-side file extraction
+│           └── style.css        # Terminal aesthetic styles
+└── sample_data/                 # Example files
 ```
 
 ## Running Tests
 
 ```bash
-# Using unittest (built-in, no install needed)
-python -m unittest discover tests/ -v
-
-# Using pytest (if installed)
-pytest tests/ -v
+pnpm test
 ```
 
-## Why Zero Dependencies?
+## Development
 
-Most Python CLI tools require installing packages like `click`, `rich`, or `colorama`. ATS Scanner uses only the Python standard library — which means DOCX support uses Python's built-in `zipfile` and `xml.etree` — still zero external dependencies:
+```bash
+# Web app with HMR
+pnpm dev:web
 
-- ✅ Works anywhere Python is installed
-- ✅ No `pip install` needed
-- ✅ No version conflicts
-- ✅ Runs on any OS (Windows, Mac, Linux)
+# CLI in dev mode
+pnpm dev:cli -- --demo
+
+# Build everything
+pnpm build
+
+# Typecheck
+pnpm --filter @ats-scanner/core typecheck
+```
 
 ## Limitations
 
 - PDF extraction works on text-based PDFs. For scanned/image PDFs, copy text to a .txt file.
-- LaTeX extraction strips common commands but may not fully resolve custom macros, \input{} chains, or nesting deeper than 3 levels. For complex templates, export to .txt first.
-- DOCX extraction reads text content only — images, tables with complex formatting, headers/footers, and text boxes may not be fully captured. For best results, use .txt.
+- LaTeX extraction strips common commands but may not fully resolve custom macros.
+- DOCX extraction reads text content only — images, complex tables may not be captured.
 - Keyword matching is lexical — does not understand semantic similarity.
 - Results are a guide, not a guarantee. ATS systems vary widely.
 

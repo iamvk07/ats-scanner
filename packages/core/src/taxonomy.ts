@@ -1,0 +1,198 @@
+import type { SkillTaxonomy } from "./types.js";
+
+export const SKILL_TAXONOMY: SkillTaxonomy = {
+  languages: {
+    weight: 10,
+    keywords: [
+      "python", "java", "javascript", "typescript", "c++", "c#", "c", "go",
+      "rust", "kotlin", "swift", "ruby", "php", "scala", "r", "matlab",
+      "perl", "bash", "shell", "powershell", "sql", "html", "css", "sass",
+      "less", "dart",
+    ],
+  },
+  frameworks: {
+    weight: 9,
+    keywords: [
+      "react", "angular", "vue", "next.js", "nuxt", "svelte", "node.js",
+      "express", "fastapi", "flask", "django", "spring", "spring boot",
+      "hibernate", "rails", "laravel", "asp.net", ".net", "tensorflow",
+      "pytorch", "keras", "pandas", "numpy", "scikit-learn", "matplotlib",
+      "junit", "pytest", "jest", "mocha", "cypress", "selenium", "graphql",
+      "rest", "grpc", "material-ui", "tailwind", "bootstrap", "jquery",
+      "redux",
+    ],
+  },
+  databases: {
+    weight: 8,
+    keywords: [
+      "postgresql", "mysql", "sqlite", "mongodb", "redis", "elasticsearch",
+      "cassandra", "dynamodb", "oracle", "sql server", "mariadb", "firebase",
+      "supabase", "nosql", "influxdb", "neo4j",
+    ],
+  },
+  devops_cloud: {
+    weight: 8,
+    keywords: [
+      "docker", "kubernetes", "aws", "azure", "gcp", "terraform", "ansible",
+      "jenkins", "github actions", "gitlab ci", "circleci", "travis", "ci/cd",
+      "devops", "linux", "unix", "nginx", "apache", "microservices",
+      "serverless", "lambda", "s3", "ec2", "rds", "cloudformation", "helm",
+    ],
+  },
+  tools: {
+    weight: 7,
+    keywords: [
+      "git", "github", "gitlab", "bitbucket", "jira", "confluence", "slack",
+      "figma", "postman", "swagger", "maven", "gradle", "npm", "yarn",
+      "webpack", "vite", "vs code", "intellij", "android studio", "xcode",
+      "vim",
+    ],
+  },
+  concepts: {
+    weight: 7,
+    keywords: [
+      "agile", "scrum", "kanban", "tdd", "bdd", "oop",
+      "functional programming", "data structures", "algorithms",
+      "design patterns", "solid", "mvc", "mvvm", "api", "rest api",
+      "websocket", "authentication", "authorization", "oauth", "jwt",
+      "machine learning", "deep learning", "nlp", "computer vision",
+      "data science", "big data", "etl", "data pipeline", "unit testing",
+      "integration testing", "test driven", "code review", "debugging",
+      "performance optimization", "security", "encryption", "version control",
+    ],
+  },
+  soft_skills: {
+    weight: 4,
+    keywords: [
+      "communication", "teamwork", "collaboration", "leadership",
+      "problem-solving", "analytical", "detail oriented", "fast learner",
+      "self motivated", "adaptable", "creative", "critical thinking",
+      "time management", "multitasking", "initiative", "proactive",
+      "organized", "attention to detail",
+    ],
+  },
+  education: {
+    weight: 5,
+    keywords: [
+      "bachelor", "master", "phd", "computer science",
+      "software engineering", "information technology",
+      "computer engineering", "mathematics", "statistics",
+      "electrical engineering", "degree", "diploma", "certification",
+      "bootcamp",
+    ],
+  },
+} as const;
+
+export const SYNONYM_MAP: Record<string, string> = {
+  "js": "javascript",
+  "es6": "javascript",
+  "es7": "javascript",
+  "ts": "typescript",
+  "golang": "go",
+  "c sharp": "c#",
+  "csharp": "c#",
+  "cplusplus": "c++",
+  "py": "python",
+  "rb": "ruby",
+  "nextjs": "next.js",
+  "nodejs": "node.js",
+  "node": "node.js",
+  "expressjs": "express",
+  "express.js": "express",
+  "aspnet": "asp.net",
+  "asp.net core": "asp.net",
+  "dotnet": ".net",
+  "dot net": ".net",
+  "scikit learn": "scikit-learn",
+  "sklearn": "scikit-learn",
+  "tf": "tensorflow",
+  "material ui": "material-ui",
+  "mui": "material-ui",
+  "tailwindcss": "tailwind",
+  "tailwind css": "tailwind",
+  "postgres": "postgresql",
+  "pg": "postgresql",
+  "mongo": "mongodb",
+  "elastic": "elasticsearch",
+  "dynamo": "dynamodb",
+  "ms sql": "sql server",
+  "mssql": "sql server",
+  "maria": "mariadb",
+  "k8s": "kubernetes",
+  "kube": "kubernetes",
+  "amazon web services": "aws",
+  "google cloud platform": "gcp",
+  "google cloud": "gcp",
+  "microsoft azure": "azure",
+  "gh actions": "github actions",
+  "github ci": "github actions",
+  "gitlab cicd": "gitlab ci",
+  "ci cd": "ci/cd",
+  "cicd": "ci/cd",
+  "continuous integration": "ci/cd",
+  "continuous deployment": "ci/cd",
+  "visual studio code": "vs code",
+  "vscode": "vs code",
+  "object oriented programming": "oop",
+  "object-oriented": "oop",
+  "object oriented": "oop",
+  "test driven development": "tdd",
+  "test-driven development": "tdd",
+  "behavior driven development": "bdd",
+  "behavior-driven development": "bdd",
+  "representational state transfer": "rest",
+  "restful api": "rest api",
+  "restful": "rest api",
+  "json web token": "jwt",
+  "json web tokens": "jwt",
+  "natural language processing": "nlp",
+  "ml": "machine learning",
+  "dl": "deep learning",
+  "cv": "computer vision",
+  "ds": "data science",
+  "problem solving": "problem-solving",
+  "detail-oriented": "detail oriented",
+  "self-motivated": "self motivated",
+};
+
+export const SORTED_SYNONYMS: [string, string][] = Object.entries(SYNONYM_MAP)
+  .sort((a, b) => b[0].length - a[0].length);
+
+export const STOP_WORDS = new Set([
+  "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of",
+  "with", "by", "from", "is", "are", "was", "were", "be", "been", "have",
+  "has", "had", "do", "does", "did", "will", "would", "could", "should",
+  "may", "might", "shall", "can", "need", "must", "about", "this", "that",
+  "these", "those", "we", "you", "they", "he", "she", "our", "your", "their",
+  "its", "my", "all", "any", "some", "no", "not", "more", "most", "other",
+  "such", "into", "through", "during", "before", "after", "above", "below",
+  "between", "each", "few", "so", "than", "too", "very", "just", "also",
+  "both", "only", "own", "same", "then", "when", "where", "who", "which",
+  "how", "what", "why", "experience", "work", "working", "years", "year",
+  "new", "using", "use", "used", "including", "include", "ability", "skills",
+  "strong", "good", "great", "excellent", "knowledge", "understanding",
+  "familiar",
+]);
+
+export const SPECIAL_PATTERNS: Record<string, RegExp> = {
+  "c": /\bc(?![+#])\b/i,
+  "c++": /\bc\+\+/i,
+  "c#": /\bc#/i,
+};
+
+export const SECTION_MULTIPLIERS: Record<string, number> = {
+  skills: 1.5,
+  experience: 1.3,
+  summary: 1.2,
+  projects: 1.1,
+  education: 1.0,
+  other: 1.0,
+};
+
+export const SECTION_HEADERS: Record<string, RegExp> = {
+  skills: /(?:^|\n)\s*(?:skills?|technical\s+skills?|core\s+competencies)\s*\n/i,
+  experience: /(?:^|\n)\s*(?:experience|work\s+history|employment|professional\s+experience)\s*\n/i,
+  summary: /(?:^|\n)\s*(?:summary|objective|professional\s+summary|profile|about\s+me)\s*\n/i,
+  projects: /(?:^|\n)\s*(?:projects?|personal\s+projects?|academic\s+projects?)\s*\n/i,
+  education: /(?:^|\n)\s*(?:education|university|college|degree|certifications?)\s*\n/i,
+};
